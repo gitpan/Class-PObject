@@ -1,6 +1,6 @@
 
 
-# $Id: 06basic_csv.t,v 1.5.4.1 2003/09/06 09:57:08 sherzodr Exp $
+# $Id: 71hasa_csv.t,v 1.1.2.1 2003/09/06 09:57:08 sherzodr Exp $
 
 BEGIN {
     for ( "DBI", "DBD::CSV", "SQL::Statement" ) {
@@ -17,7 +17,7 @@ BEGIN {
 }
 
 use File::Spec;
-use Class::PObject::Test::Basic;
+use Class::PObject::Test::HAS_A;
 
-my $t = new Class::PObject::Test::Basic('csv', {Dir=>File::Spec->catfile('data', 'basic', 'csv')});
+my $t = new Class::PObject::Test::HAS_A('csv', {Dir=>File::Spec->catfile('data', 'has_a', 'csv')});
 $t->run();

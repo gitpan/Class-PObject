@@ -1,6 +1,4 @@
-
-
-# $Id: 16basic_db_file.t,v 1.4.2.1 2003/09/06 09:57:08 sherzodr Exp $
+# $Id: 63types_db_file.t,v 1.1.2.1 2003/09/05 22:24:36 sherzodr Exp $
 
 BEGIN {
     for ( "DB_File", "Storable" ) {
@@ -13,6 +11,6 @@ BEGIN {
 }
 
 use File::Spec;
-use Class::PObject::Test::Basic;
-my $t = new Class::PObject::Test::Basic('db_file', File::Spec->catfile('data', 'basic', 'db_file'));
+use Class::PObject::Test::Types;
+my $t = new Class::PObject::Test::Types('db_file', File::Spec->catfile('data', 'types', 'db_file'));
 $t->run();

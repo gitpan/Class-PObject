@@ -1,8 +1,9 @@
 package Class::PObject::Driver::sqlite;
 
-# $Id: sqlite.pm,v 1.5 2003/08/27 00:23:37 sherzodr Exp $
+# $Id: sqlite.pm,v 1.5.4.2 2003/09/06 10:14:58 sherzodr Exp $
 
 use strict;
+#use diagnostics;
 use Log::Agent;
 use vars ('@ISA', '$VERSION');
 require Class::PObject::Driver::DBI;
@@ -76,14 +77,8 @@ sub _tablename {
     return $table_name
 }
 
-
-
-
-
 1;
 __END__;
-
-=pod
 
 =head1 NAME
 
@@ -97,7 +92,6 @@ Class::PObject::Driver::sqlite - SQLite Pobject Driver
         driver  => 'sqlite',
         datasource => 'data/website.db'
     };
-
 
 =head1 DESCRIPTION
 
@@ -130,18 +124,13 @@ C<save()> - stores/updates the object
 
 =head1 SEE ALSO
 
-L<Class::PObject>, L<Class::PObject::Driver::csv>,
-L<Class::PObject::Driver::file>, L<Class::PObject::Driver::mysql>
-
-=head1 AUTHOR
-
-Sherzod Ruzmetov E<lt>sherzodr@cpan.orgE<gt>
+L<Class::PObject>, 
+L<Class::PObject::Driver::csv>,
+L<Class::PObject::Driver::file>, 
+L<Class::PObject::Driver::mysql>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut

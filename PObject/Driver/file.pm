@@ -1,8 +1,9 @@
 package Class::PObject::Driver::file;
 
-# $Id: file.pm,v 1.14 2003/08/27 08:43:49 sherzodr Exp $
+# $Id: file.pm,v 1.15.2.2 2003/09/06 10:14:57 sherzodr Exp $
 
 use strict;
+#use diagnostics;
 use File::Spec;
 use Log::Agent;
 use Class::PObject::Driver;
@@ -19,7 +20,7 @@ sub save {
     my $self = shift;
     my $class = ref($self) || $self;
     my ($object_name, $props, $columns) = @_;
-    
+
     logtrc 3, "%s->save()", $class;
 
     # if 'id' does not already exist, we're being asked to save a newly
@@ -44,7 +45,7 @@ sub save {
     }
 
     # and store frozen data into file:
-    print FH $self->freeze($columns);
+    print FH $self->freeze($object_name, $props, $columns);
     # if we can't close the file handle, it means we couldn't store it.
     unless( close(FH) ) {
         $self->errstr("couldn't save the object: $!");
@@ -63,7 +64,7 @@ sub load_ids {
     my $class = ref($self) || $self;
     my ($object_name, $props, $terms, $args) = @_;
 
-    logtrc 3, "%s->load_ids(%s)", $class, join ", ", @_;
+    logtrc 3, "%s->load_ids(@_)", $class;
 
     # if we come this far, we're being asked to return either all the objects,
     # or by some criteria
@@ -121,7 +122,7 @@ sub load_ids {
         unless( defined $datastr ) {
             next
         }
-        my $data = $self->thaw($datastr);
+        my $data = $self->thaw($object_name, $props, $datastr);
         if ( $self->_matches_terms($data, $terms) ) {
             push @data_set, keys %$args ? $data : $data->{id};
             $n++
@@ -133,7 +134,7 @@ sub load_ids {
     unless ( keys %$args ) {
         return \@data_set
     }
-    
+
     my $data_set = $self->_filter_by_args(\@data_set, $args);
     return [ map { $_->{id} } @$data_set ]
 }
@@ -181,7 +182,7 @@ sub load {
         $self->errstr("object is empty");
         return undef
     }
-    return $self->thaw($data_str)
+    return $self->thaw($object_name, $props, $data_str)
 }
 
 
@@ -278,17 +279,9 @@ sub _dir {
     return $object_dir
 }
 
-
-
-
-
-
-
 1;
 
 __END__;
-
-=pod
 
 =head1 NAME
 
@@ -296,10 +289,11 @@ Class::PObject::Driver::file - Default PObject driver
 
 =head1 SYNOPSIS
 
-  pobject Person => {
-    columns   => ['id', 'name', 'email']
-    datasource=> 'data'
-  };
+    pobject Person => {
+        columns   => ['id', 'name', 'email']
+        datasource=> 'data',
+        serializer => 'xml'
+    };
 
 =head1 DESCRIPTION
 
@@ -314,6 +308,11 @@ system's temporary directory, which is F</tmp> on most *nix systems, and F<C:\TE
 This data source is a folder in your operating system, inside which objects will be stored.
 Pobject will create a folder for each object type inside the I<datasource> folder, and will store
 all the objects of the same type in their own folders.
+
+Other supported property is I<serialiazer>, which defaults to I<storable> if the value is missing.
+This serializer defines the serializing and de-serializing method used by object driver.
+Possible values are I<xml>, which requires L<XML::Dumper|XML::Dumper> to have been installed,
+and I<dumper>, which requires L<Data::Dumper|Data::Dumper> and 'storable'.
 
 =head1 SUPPORTED FEATURES
 
@@ -369,50 +368,20 @@ C<_filename($self, $pobject_name, \%properties)> is called to get a path to a fi
 object should be stored into. C<_filename()> will call C<_dir()> method to get the object directory,
 and builds a filename inside this directory.
 
-=item *
-
-C<freeze($self, \%data)> and C<thaw($self, $string)> are used to serialize and de-serialize the data
-to make it suitable for storing into disk. By default C<freeze()> and C<thaw()> use
-L<Data::Dumper|Data::Dumper>. If you want to use some other method, you can subclass
-Class::PObject::Driver::file and define your own C<freeze()> and C<thaw()> methods:
-
-    # Inside Class/PObject/Driver/my_file.pm
-    package Class::PObject::Driver::my_file;
-    use base ('Class::PObject::Driver::file');
-    require Storable;
-
-    sub freeze {
-        my ($self, $data) = @_;
-        return Storable::freeze($data)
-    }
-
-    sub thaw {
-        my ($self, $string) = @_;
-        return Storable::thaw($string)
-    }
-
-    1;
-
-    # Inside Article.pm, for example:
-    package Article;
-    pobject {
-        columns => ['id', 'title', 'author', 'content'],
-        driver  => 'my_file'
-    };
-
 =back
 
 =head1 OBJECT STORAGE
 
 Each object is stored as a separate file. File name pattern for each object file is defined in
-C<$Class::PObject::Driver::file::f> global variable, is is C<obj%05.cpo> by default, where C<%05>
-will be replaced with the I<id> of the object, zeroes padded if necessary.
+C<$Class::PObject::Driver::file::f> global variable, and is C<obj%05.cpo> by default, where C<%05>
+will be replaced with the I<id> of the object, zero-padded if necessary.
 
 B<Note:> extension '.cpo' stands for B<C>lass::B<PO>bject.
 
 =head1 SERIALIZATION
 
-Objects are serialized using standard L<Data::Dumper|Data::Dumper>
+Objects are serialized and de-serialized with the help of C<freeze()> and C<thaw()> methods
+provided by its base class, L<Class::PObject::Driver|Class::PObject::Driver>.
 
 =head1 ID GENERATION
 
@@ -424,24 +393,25 @@ the path to this folder) in a file called "counter.cpo".
 
 Removing F<counter.cpo> from the directory will force PObject to reset object ids. This may be a problem
 if there already are objects in the directory, and they may be overridden by new ids. I realize
-this is a scary limitation, which will be eventually addressed.
+this is a scary limitation, which will eventually be addressed.
 
-In the meanwhile, just don't make habit of removing F<counter.cpo>!
+In the meanwhile, just don't make habit of removing F<counter.cpo> :-).
 
 =head1 EFFICIENCY
 
 Since the driver doesn't keep an index of any kind, the most efficient way of loading the data is by its id.
-A relatively simple C<load(undef, {limit=>n})> syntax is also relatively fast.
+A relatively simple C<load(undef, {limit=>n})> syntax is also reasonably efficient.
 
-  my $p       = Person->load(451);
-  my @people  = Person->load();
-  my @group   = Person->load(undef, {limit=>100});
+    $p       = Person->load(451);
+    @people  = Person->load();
+    @group   = Person->load(undef, {limit=>100});
 
 as load() becomes complex, the performance gets degrading:
 
-  my @people = Person->load({name=>"Sherzod"}, {sort=>'age', direction=>'desc', limit=>10, offset=>4});
+    @people = Person->load( {name=>"Sherzod"}, 
+                            {sort=>'age', direction=>'desc', limit=>10, offset=>4} );
 
-To perform the above search, the driver walks through all the objects available in the I<datasource>, pushes all the objects matching 'name="sherzod"' to the data-set, then, just before returning the data set, performs sort, limit and offset calculations. 
+To perform the above search, the driver walks through all the objects available in the I<datasource>, pushes all the objects matching 'name="sherzod"' to the data-set, then, just before returning the data set, performs sort, limit and offset calculations.
 
 As you imagine, as the number of objects in the datasource increases, this operation will become more costly.
 
@@ -450,8 +420,8 @@ As you imagine, as the number of objects in the datasource increases, this opera
 L<Class::PObject>, L<Class::PObject::Driver::mysql>,
 L<Class::PObject::Driver::file>
 
-=head1 AUTHOR
+=head1 COPYRIGHT AND LICENSE
 
-Sherzod Ruzmetov <sherzodr@cpan.org>
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut

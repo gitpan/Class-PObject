@@ -1,6 +1,11 @@
 Revision history for Class::PObject
 =======================================
 
+2.06_02     Saturday, September 06, 2003
+
+            - NEW: Full type-mapping functionality
+            - NEW: HAS-A relationships through type-mapping
+
 2.05_01      Tuesday, September 02, 2003
 
             - More optimized load_ids() DBI driver method thanks to extended
@@ -61,4 +66,4 @@ Revision history for Class::PObject
               AXn Class::Struct::Persistent
 
 =======================================
-$Id: Changes,v 1.10 2003/09/02 22:22:00 sherzodr Exp $
+$Id: Changes,v 1.10.2.1 2003/09/06 10:07:50 sherzodr Exp $

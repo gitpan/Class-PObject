@@ -1,18 +1,17 @@
 package Class::PObject;
 
-# $Id: PObject.pm,v 1.38 2003/09/01 05:07:53 sherzodr Exp $
+# $Id: PObject.pm,v 1.39.2.8 2003/09/06 10:14:55 sherzodr Exp $
 
 use strict;
+#use diagnostics;
 use Log::Agent;
 use vars ('$VERSION', '$revision');
 
-$VERSION    = '2.05_01';
-($revision) = '$Revision: 1.38 $' =~ m/Revision:\s*(\S+)/;
+$VERSION    = '2.06_02';
+($revision) = '$Revision: 1.39.2.8 $' =~ m/Revision:\s*(\S+)/;
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
-
-# Preloaded methods go here.
 
 sub import {
     my $class       = shift;
@@ -24,7 +23,7 @@ sub import {
         return 1
     }
     require Exporter;
-    return $class->Exporter::import(@_)
+    return $class->Exporter::import( @_ )
 }
 
 sub pobject {
@@ -78,7 +77,7 @@ sub pobject {
     }
 
     # certain method names are reserved. Making sure they won't get overridden
-    my @reserved_methods = qw(new load fetch save pobject_init DESTROY);
+    my @reserved_methods = qw(new load fetch save pobject_init set get DESTROY);
     for my $method ( @reserved_methods ) {
         for my $column ( @{$props->{columns}} ) {
             if ( $method eq $column ) {
@@ -90,17 +89,14 @@ sub pobject {
     for my $colname ( @{$props->{columns}} ) {
         unless ( defined($props->{tmap}) && $props->{tmap}->{$colname} ) {
             if ( $colname eq 'id' ) {
-                $props->{tmap}->{$colname} = 'INTEGER';
-                next
+                $props->{tmap}->{$colname} = 'INTEGER', next
             }
-            $props->{tmap}->{$colname}   = 'VARCHAR(250)'
+            $props->{tmap}->{$colname}   = 'VARCHAR(255)'
         }
     }
 
     # if no driver was specified, default driver to be used is 'file'
-    unless ( $props->{driver} ) {
-        $props->{driver} = 'file'
-    }
+    $props->{driver} ||= 'file';
 
     # it's important that we cache all the properties passed to the pobject()
     # as a static data. This lets multiple instances of the pobject to access
@@ -121,18 +117,19 @@ sub pobject {
     *{ "$class\::dump" }        = \&Class::PObject::Template::dump;
     *{ "$class\::__props" }     = \&Class::PObject::Template::__props;
     *{ "$class\::__driver" }    = \&Class::PObject::Template::__driver;
-    
-    for my $colname ( @{$props->{columns}} ) {
+
+    for my $colname ( @{ $props->{columns} } ) {
         if ( $class->UNIVERSAL::can($colname) ) {
-            logcarp "method '%s' already exists in the caller's package", $colname;
+            logcarp "method '%s' exists in the caller's package", $colname;
             next
         }
         *{ "$class\::$colname" } = sub {
             if ( @_ == 2 ) {
-                $_[0]->{columns}->{$colname}    = $_[1];
-                $_[0]->{_modified}->{$colname}  = 1
+                my $set = \&Class::PObject::Template::set;
+                return $set->( $_[0], $colname, $_[1] )
             }
-            return $_[0]->{columns}->{$colname}
+            my $get = \&Class::PObject::Template::get;
+            return $get->( $_[0], $colname )
         }
     }
 }
@@ -202,78 +199,9 @@ We can also seek into a specific point of the result set:
 Class::PObject is a simple class framework for programming persistent objects in Perl.
 Such objects can store themselves into disk, and recreate themselves from disk.
 
-=head1 OVERVIEW
+=head1 PHILOSOPHY
 
-Idea behind Object Persistence is to represent data as a software object. Another way of looking
-at it is, to make objects persist across processes instead of simply being destroyed
-exiting the scope.
-
-=head2 DATA vs OBJECT
-
-In a plain text database, for instance, each line could represent a single record. Different pieces of the
-record could be separated by some commonly agreed delimiter, such as a comma (,), pipe sign (|) etc.
-Unique identifier for individual records can be the line number that particular record resides on.
-For example:
-
-    # in person.txt
-    Sherzod Ruzmetov, sherzodr[AT]cpan.org
-    Leyla Ivanitskaya, leyla[AT]handalak.com
-
-In a BerkeleyDB (or DBM) each key/value pair of the hash can be considered a single record.
-A unique identifier for individual records can be the key of the hash. Pieces of records
-could be delimited by a commonly agreed delimiter, just like in a plain text database.
-For example:
-
-    # in person.db
-    217  => "Sherzod Ruzmetov|sherzodr[AT]cpan.org"
-    218  => "Leyla Ivanitskaya|leyla[AT]handalak.com"
-
-In a Relational Database System, each row of a database table is considered a single record,
-and each piece of the record has its own column in the table. A unique identifier for individual
-records can be a single column marked as primary key, or multiple columns marked so:
-
-    # in person
-    +-----+----------------+------------------------+
-    | id  | name           | email                  |
-    +-----+----------------+------------------------+
-    | 217 | Sherzod        | sherzodr[AT]cpan.org   |
-    +-----+----------------+------------------------+
-
-As you noticed, they all have something in common - they all have the same logical structure,
-a record identifier, several pieces of different records, and a container (single line, key/value pair
-or a single row). All these representations are low-level.  Why couldn't we try to
-represent them all as a software object instead and forget what they really look like in the low-level.
-
-For example, we could treat a single record from either of the above databases as an object, say
-a Person object. According to above databases, this object may have three attributes, I<id>,
-C<name> and C<email>. Sounds so natural, doesn't it?
-
-Your programs, instead of dealing with low-level disk access each time a record should be
-accessed (for either writing or reading purposes), could just play with objects. And those
-objects could deal with low-level disk access behind the scenes.
-
-=head2 WHAT ARE THE ADVANTAGES
-
-First off, data, regardless of the storage mechanism, is always accessed through the same
-programming API. So your programs can work with any database system without any change at all.
-
-Will help make a cleaner code base, because your application will never be making use of any
-low-level procedures to access the data such as running any SQL queries. Everything happens
-through objects and their supported methods.
-
-Your applications will be more modular and code base will be more compact. As a developer
-you will have less code to maintain.
-
-Your programming API will be easily accessible by 3rd parties, thus making your applications
-easily integrative as well as extensible without having to undergo time consuming, costly
-training. All they will need to read is about a page of POD manual of your related class in
-order to be able to make use of it.
-
-=head2 WHAT ARE THE DISADVANTAGES
-
-Object API may not be able to provide all the flexibility and optimization of the underlying
-database engine. To remedy this some tools provide sort of backdoors for the programmers
-to be able to interact with the underlying database engine more directly.
+This section has been moved into L<Class::PObject::Philosophy|Class::PObject::Philosophy>.
 
 =head1 PROGRAMMING STYLE
 
@@ -383,9 +311,9 @@ Or, to store them in a mysql database using L<DBD::mysql|DBD::mysql>:
         }
     };
 
-So forth. For more options you should refer to respective object driver.
+So forth. For more options you should refer to respective object driver manual.
 
-=head2 CREATEING NEW PERSON
+=head2 CREATING NEW PERSON
 
 After having the above Person class declared, we can now create an instance of a
 new Person with the following syntax:
@@ -406,12 +334,12 @@ will automatically generate a new ID for your newly created object, and C<save()
 method will return this ID for you.
 
 If you assign a value for I<id>, you better make sure that ID doesn't already exist. If it does,
-the old object with that ID will be replaced with this new ID. So to be safe, just don't bother
-defining any values for your ID columns.
+the old object with that ID will be replaced with new object. So to be safe, just don't bother
+defining any values for your ID columns, unless you have a really good reason.
 
-Sometimes, if you have objects with few attributes that do not require too much data,
-you may choose to both create your Person and assign its values at the same time. You can
-do so by passing your column values while creating the new person:
+Sometimes, if you have objects with few attributes, you may choose to both create your
+Person and assign its values at the same time. You can do so by passing your column values
+while creating the new person:
 
     $person = new Person(name=>"Sherzod Ruzmetov", email=>"sherzodr[AT]cpan.org");
     $person->save();
@@ -436,7 +364,7 @@ Above, instead of displaying the C<$person>'s name, we could also edit the name 
     $person->name("Sherzod The Geek");
     $person->save();
 
-Sometimes you may choose to load multiple objects at a time. Using the same C<load()> method,
+Sometimes you may choose to load multiple objects. Using the same C<load()> method,
 we could assign all the result set into an array:
 
     @people = Person->load();
@@ -450,11 +378,11 @@ syntax:
 
 Notice two different contexts C<load()> was used in. If you call C<load()> in scalar context,
 regardless of the number of matching objects, you will always retrieve the first object in
-the data set. For added efficiency, Class::PObject will add I<limit=E<gt>1> argument even if
-it's missing, or exists with a different value.
+the data set. For added efficiency, Class::PObject will add I<limit=E<gt>1> argument to C<load()>
+even if it's missing, or exists with a different value.
 
 If you called C<load()> in array context, you will always receive an array of objects, even
-if result set consist of single object.
+if result set consists of a single object.
 
 Sometimes you just want to load objects matching a specific criteria, say, you want all the people
 whose name are I<John>. You can achieve this by passing a hashref as the first argument to C<load()>:
@@ -476,7 +404,7 @@ We could use both terms and arguments at the same time and in any combination.
 =head2 SUPPORTED ARGUMENTS OF load()
 
 Arguments are the second set of key/value pairs passed to C<load()>. Some drivers
-may look at this set as post-result-filtering.
+may look at this set as post-result-filters.
 
 =over 4
 
@@ -497,7 +425,8 @@ Denotes the number of objects to be returned.
 =item C<offset>
 
 Denotes the offset of the result set to be returned. It can be combined with C<limit>
-to retrieve a sub-set of the result set.
+to retrieve a sub-set of the result set, in which case, result set starting at I<offset>
+value and up to I<limit> number will be returned to the caller.
 
 =back
 
@@ -505,12 +434,12 @@ to retrieve a sub-set of the result set.
 
 C<load()> may be all you need most of the time. If your objects are of larger size,
 or if you need to operate on thousands of objects, your program may not have enough memory to
-hold them all, because C<load()> tends to literally load all the matching objects to the memory.
+hold them all, because C<load()> tends to load all the matching objects to the memory.
 
 If this is your concern, you are better off using C<fetch()> method instead. Syntax of C<fetch()>
-is almost identical to C<load()>, with an exception that it doesn't except object id
-as the first argument, for it wouldn't make sense. You can either use it without any arguments,
-or with any combination of C<\%terms> and C<\%args> as needed, just like with C<load()>.
+is almost identical to C<load()>, with an exception that it doesn't accept object id
+as the first argument. You can either use it without any arguments, or with any combination
+of C<\%terms> and C<\%args> as needed, just like with C<load()>.
 
 Another important difference is, it does not return any objects. It's return value is an
 instance of L<Class::PObject::Iterator|Class::PObject::Iterator>, which helps
@@ -589,11 +518,134 @@ removing one at a time. Most of the object drivers may offer a better, efficient
 objects from the disk without having to C<load()> them. That's why you should rely on
 C<remove_all()>.
 
+=head2 COLUMN TYPES
+
+Class::PObject lets you define types for your columns, also known as I<type-maps>. 
+First off, what for?
+
+Type-maps can be looked at as properties of each column. If you are familiar with RDBMS,
+you are already familiar with them. They read as I<CHAR>, I<VARCHAR>, I<INTEGER>,
+I<ENCRYPT>, I<MD5> etc.
+
+Column types can be used for declaring a property for a column, defining a constraint
+or input-output filtering of columns.
+
+This same feature can also be used for defining object relationships, but let's talk
+about it later, not to confuse you yet.
+
+You can define a type for your columns by I<tmap> pobject attribute:
+
+    pobject User => {
+        columns => ['id', 'login', 'psswd', 'name'],
+        tmap    => {
+            id      => 'INTEGER',
+            login   => 'CHAR(18)',
+            psswd   => 'MD5',
+            name    => 'VARCHAR(40)'
+        }
+    }
+
+Above class declaration is defining a User class, with 4 columns, and defining the type
+of each column, such as I<id> as an I<INTEGER> column, I<login> as a I<VARCHAR> column
+and so forth.
+
+You normally never have to declare any column types. If you don't, I<id> column will always
+default to I<INTEGER>, and all other columns will always default to I<VARCHAR(255)>. So
+you should declare your column types only if you don't agree with default types.
+
+So in above example, I could've chosen to say:
+
+    pobject User => {
+        columns => ['id', 'login', 'psswd', 'name'],
+        tmap    => {
+            psswd   => 'MD5'
+        }
+    }
+
+Notice, I am accepting default type values for all the columns except for I<psswd> column,
+which should be encrypted using MD5 message digest algorithm before being stored into
+disk.
+
+Of course, if I didn't care about security as much, I could've chosen not to define
+type-map for I<psswd> column either.
+
+
+As of this release, available built-in column types are:
+
+=over 4
+
+=item INTEGER
+
+Stands for INTEGER type. This type is handled through
+L<Class::PObject::Type::INTEGER|Class::PObject::Type::INTEGER>. Currently
+Class::PObject doesn't enforce any constraints, but this may (and most likely
+will) change in the future releases, so be cautious.
+
+=item CHAR(n)
+
+Stands for CHARacter type with length I<n>. This type is handled through
+L<Class::PObject::Type::CHAR|Class::PObject::Type::CHAR> class, which currently
+doesn't enforce any constraints to the length of the column. This may change
+in future releases, so be cautious.
+
+=item VARCHAR(n)
+
+Stands for VARIABLE CHARacter I<n> character long. Highest allowed value for I<n>
+is usually 255 characters, but this is still not enforced, but this may change
+in future releases, so be cautious. Handled through 
+L<Class::PObject::Type::VARCHAR|Class::PObject::Type::VARCHAR> class.
+
+=item TEXT
+
+Stands for TEXT column, which normally denotes values longer than 255 characters.
+As of this release TEXT columns are handled the same way as CHAR and VARCHAR columns.
+This may change in future releases, so be cautious.
+
+=item ENCRYPT
+
+Stands for ENCRYPTed column types. It denotes values which need to be encrypted
+using UNIX's C<crypt()> function before being stored into disk. Smart overloading allows
+to do something like the following:
+
+
+    $user = new User();
+    $user->psswd('marley01');
+    print $user->psswd; # prints 'ZG9nqo.9bPjGA'
+    if ( $user->psswd eq "marley01") {
+        print "Good!\n";
+    } else {
+        print "Bad!\n";
+
+    }
+
+The above example will print "Good". Notice, that even if C<psswd> method returns
+encrypted password ('ZG9nqo.9bPjGA'), we could still compare it with an un-encrypted
+string using Perl's built-in I<eq> operator to see if "marley01" would really equal
+to 'ZG9nqo.9bPjGA' if encrypted.
+
+=item MD5
+
+Stands for MD5 message digest. It denotes values that need to be encrypted
+using MD5 message digest algorithm before being stored into disk. Smart overloading
+allows it to be used in similar way as I<ENCRYPT> column types
+
+=back
+
+Up to this section you noticed that objects' accessor methods have been returning
+strings, right? Wrong! They have been returning objects of their appropriate types.
+But you didn't notice them and kept treating them as strings because of smart
+operator overloading feature of those objects.
+
+This means, if at any time in your program you want to discover the type of a specific
+column, you could simply use Perl's built-in I<ref()> function:
+
+    print ref( $user->psswd), "\n"; # <-- prints ENCRYPT
+    print ref( $user->name ), "\n"; # <-- print VARCHAR
+
 =head2 DEFINING METHODS OTHER THAN ACCESSORS
 
 In some cases accessor methods are not all the methods your class may ever need. It may
-need some other behaviors. In cases like these, you can extend your class with your own,
-custom methods.
+need some other behaviors. In cases like these, you can extend your class with custom methods.
 
 For example, assume you have a "User" object, which needs to be authenticated
 before they can access certain parts of the web site. It may be a good idea to
@@ -649,20 +701,89 @@ Now, we can check if the user is logged into our web site with the following cod
 Notice, we're passing L<CGI|CGI> and L<CGI::Session|CGI::Session> objects to C<authenticate()>.
 You can do it differently depending on the tools you're using.
 
+=head2 HAS-A RELATIONSHIP THROUGH TYPE MAPPING
+
+Some available tools prefer calling this feature as I<HAS-A> relationship, 
+but Class::PObject prefers the term I<type-mapping>. For the sake of familiarity, 
+let's look at it as I<HAS-A> relationship for now.
+
+I<HAS-A> relationship says that a value in a specific column is actually an id
+of another object. In RDBMS this particular column is known as I<foreighn key>, because
+it holds the primary key of another (foreign) table.
+
+You can define this relationship the same way as we did column types using
+I<tmap> pobject attribute.
+
+Suppose, we have two classes, Article and Author:
+
+    pobject Author => {
+        columns        => ['id', 'name', 'email']
+    };
+
+    pobject Article => {
+        columns        => ['id', 'author', 'title', 'body'],
+        tmap        => {
+            author        => 'Author'
+        }
+    };
+
+Notice, in the above Article class, we're defining its I<author> column
+to be of I<Author> type. This type should match the name of the existing
+class.
+
+Now, we can create a new article with the following syntax:
+
+    $author = Author->load({name=>'Sherzod Ruzmetov'});
+
+    $article = new Article();
+    $article->title("Class::PObject now supports HAS-A relationships");
+    $article->body("***body of the article***");
+    $article->author( $author );
+    $article->save();
+
+Notice, we passed C<$author> object to article's C<author()> method. 
+Class::PObject retrieves the ID of the author and stores it into Article's
+I<author> field.
+
+When you choose to access I<author> field of the article, Class::PObject
+will automatically load respective Author object.
+
+    $article = Article->load(32);
+    my $author = $article->author;
+    printf "Author: %s\n", $author->name;
+
+
+We could've also passed C<$author> as part of the \%terms while loading
+articles:
+
+    my $author = Author->load({name=>"Sherzod Ruzmetov"});
+    @my_articles = Article->load({author=>$author});
+
+
+As you noticed, defining HAS-A relationship is the same as defining
+built-in column types. In fact, they are the same, with the exception
+of smart overloading, which are available only in built-in type-maps, 
+and not for objects in HAS-A relationship.
+
+One can look at it as a restriction, but you don't have to :-).
+
 =head2 ERROR HANDLING
 
 I<PObjects> try never to C<die()>, and lets the programer to decide what to do on failure,
 (unless of course, you insult it with wrong syntax).
 
-Methods that may fail are the ones to do with disk access, namely, C<save()>, C<load()>, C<remove()> and C<remove_all()>. So it's advised you check these methods' return values before you assume any success.
-If an error occurs, the above methods return undef. More verbose error message will be accessible
-through errstr() method. In addition, C<save()> method should always return the object id on success:
+Methods that may fail are the ones to do with disk access, namely, C<save()>, C<load()>, 
+C<remove()> and C<remove_all()>. So it's advised you check these methods' return values before 
+you assume any success. If an error occurs, the above methods return undef. More verbose error 
+message will be accessible through errstr() method. In addition, C<save()> method should 
+always return the object id on success:
 
     my $new_id = $person->save();
     unless ( defined $new_id ) {
         die "save() failed: " . $person->errstr
     }
     Person->remove_all() or die "remove_all() failed: " . Person->errstr;
+
 
 =head1 MISCELLANEOUS METHODS
 
@@ -698,7 +819,8 @@ This error message is also available through C<$CLASS::errstr> global variable:
 
 =item *
 
-C<__props()> - returns I<class properties>. Class properties are usually whatever was passed to C<pobject()> as a hashref. This information is usually useful for driver authors only.
+C<__props()> - returns I<class properties>. Class properties are usually whatever was 
+passed to C<pobject()> as a hashref. This information is usually useful for driver authors only.
 
 =item *
 
@@ -724,7 +846,8 @@ efficiently.
 =head2 GLOBAL DESCTRUCTOR
 
 Pobjects try to cache the driver object for more extended periods than pobject's scope permits them
-to. So a I<global desctuctor> should be applied to prevent unfavorable behaviors, especially under persistent environments, such as mod_perl or GUI.
+to. So a I<global desctuctor> should be applied to prevent unfavorable behaviors, especially 
+under persistent environments, such as mod_perl or GUI.
 
 Global variables that I<may> need to be cleaned up are:
 
@@ -769,11 +892,11 @@ Sherzod B. Ruzmetov, E<lt>sherzod@cpan.orgE<gt>, http://author.handalak.com/
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
+Copyright (c) 2003 Sherzod B. Ruzmetov. All rights reserved.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-$Date: 2003/09/01 05:07:53 $
+$Date: 2003/09/06 10:14:55 $
 
 =cut

@@ -1,4 +1,5 @@
 Changes
+docs/Philosophy.pod
 INSTALL
 Makefile.PL
 MANIFEST			This list of files
@@ -6,7 +7,6 @@ META.yml
 PObject.pm
 PObject/Driver.pm
 PObject/Driver/csv.pm
-PObject/Driver/DB_File.pm
 PObject/Driver/db_file.pm
 PObject/Driver/DBI.pm
 PObject/Driver/DBM.pm
@@ -17,8 +17,10 @@ PObject/Iterator.pm
 PObject/Template.pm
 PObject/Test.pm
 PObject/Test/Basic.pm
+PObject/Test/HAS_A.pm
 PObject/Test/Types.pm
 PObject/Type.pm
+PObject/Type/CHAR.pm
 PObject/Type/ENCRYPT.pm
 PObject/Type/INTEGER.pm
 PObject/Type/MD5.pm
@@ -30,5 +32,13 @@ t/06basic_csv.t
 t/11basic_mysql.t
 t/16basic_db_file.t
 t/21basic_sqlite.t
-t/61type_md5.t
-t/62type_encrypt.t
+t/61types_file.t
+t/62types_csv.t
+t/63types_db_file.t
+t/64types_mysql.t
+t/65types_sqlite.t
+t/70hasa_file.t
+t/71hasa_csv.t
+t/72hasa_mysql.t
+t/73hasa_db_file.t
+t/74hasa_sqlite.t

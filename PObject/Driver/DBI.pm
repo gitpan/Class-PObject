@@ -1,12 +1,12 @@
 package Class::PObject::Driver::DBI;
 
-# $Id: DBI.pm,v 1.8 2003/09/02 22:22:02 sherzodr Exp $
+# $Id: DBI.pm,v 1.8.2.2 2003/09/06 10:14:57 sherzodr Exp $
 
 use strict;
+#use diagnostics;
 use Carp;
 use Log::Agent;
 use Class::PObject::Driver;
-use Data::Dumper;
 use vars ('$VERSION', '@ISA');
 
 @ISA = ('Class::PObject::Driver');
@@ -41,7 +41,7 @@ sub _prepare_select {
 
     my ($sql, @where, @bind_params, $selected_cols);
     my ($where_clause, $bind_params) = $self->_prepare_where_clause($terms);
-	$selected_cols = $cols ? join (", ", @$cols) : "*";
+    $selected_cols = $cols ? join (", ", @$cols) : "*";
     $sql = sprintf("SELECT %s FROM %s %s", $selected_cols, $table_name, $where_clause);
     if ( defined $args ) {
         $args->{limit}      ||= 1000;
@@ -306,7 +306,6 @@ sub _unlock {
 
 1;
 __END__
-# Below is stub documentation for your module. You'd better edit it!
 
 =head1 NAME
 
@@ -320,13 +319,11 @@ Class::PObject::Driver::DBI - Base class for all DBI-related drivers
 
     sub save {
         my ($self, $pobject_name, \%properties, \%columns) = @_;
-
         ...
     }
 
     sub dbh {
         my ($self, $pobject_name, \%properties) = @_;
-
         ...
     }
 
@@ -338,12 +335,12 @@ Class::PObject::Driver::DBI - Base class for all DBI-related drivers
 
 =head1 STOP!
 
-If you just want to be able to use Class::PObject> this manual is not for you.
+If you just want to be able to use L<Class::PObject|Class::PObject> this manual is not for you.
 This is for those willing to write I<pobject> drivers to support other database
 systems and storage devices.
 
 If you just want to be able to use Class::PObject, you should refer to its
-L<online manual|Class::PObject> instead.
+L<manual|Class::PObject> instead.
 
 =head1 DESCRIPTION
 
@@ -352,7 +349,7 @@ and overrides the methods provided in Class::PObject::Driver with those more rel
 to RDBMS engines.
 
 It uses ANSI-SQL syntax, so most of the base methods should perform as expected for most
-RDBMS that supports ANSI-SQL syntax.
+RDBMS that support ANSI-SQL syntax.
 
 For those that don't, you can override necessary methods from within your driver class.
 This manual will not discuss the list of base methods, for they all are documented in
@@ -373,7 +370,8 @@ For details on C<save()> method, refer to L<Class::PObject::Driver|Class::PObjec
 =item *
 
 C<dbh($self, $pobject_name, \%properties)> - will be called by other base methods whenever
-a database handle is needed. It receives all the standard arguments (L<Class::PObject::Driver>)
+a database handle is needed. It receives all the standard arguments 
+(see L<Class::PObject::Driver|Class::PObject::Driver>)
 
 If your project consists of several pobjects, which is very common, you may want to C<stash()>
 the created database handle to ensure Class::PObject will be able to re-use the same object
@@ -413,9 +411,8 @@ Example:
 
 =item *
 
-C<_prepare_select($self, $table_name, \%terms, \%args)> - prepares a I<SELECT> SQL statement,
-given $table_name, \%terms and \%args. The last two arguments are the same as the ones passed
-to C<load()> pobject method.
+C<_prepare_select($self, $table_name, \%terms, \%args, \@cols)> - prepares a I<SELECT> SQL statement,
+given $table_name, \%terms and \%args and \@cols.
 
 Example:
 
@@ -468,15 +465,8 @@ it into SQL statements.
 
 L<Class::PObject::Driver>
 
-=head1 AUTHOR
-
-Sherzod B. Ruzmetov, E<lt>sherzodr@cpan.orgE<gt>, http://author.handalak.com/
-
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut

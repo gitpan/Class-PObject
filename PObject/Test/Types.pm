@@ -1,45 +1,135 @@
-package Class::PObject::Test::Basic;
+package Class::PObject::Test::Types;
 
 use strict;
+#use diagnostics;
 use Test::More;
-use Class::PObject;
-use Class::PObject::Test;
-
 use vars ('$VERSION', '@ISA');
 
-@ISA = ('Class::PObject::Test');
-$VERSION = '1.00';
-
-
 BEGIN {
-    plan(tests => 2);
-    use_ok("Class::PObject")
+    plan(tests => 40);
+    use_ok("Class::PObject");
+    use_ok("Class::PObject::Test");
+    use_ok("Class::PObject::Type");
 }
+
+@ISA = ('Class::PObject::Test');
+$VERSION = '1.02';
 
 
 sub run {
     my $self = shift;
 
-	pobject Article => {
-		columns			=> ['id', 'title', 'author', 'content'],
-		driver			=> $self->{driver},
-		datasource		=> $self->{datasource},
-		tmap => {
-			id      => 'INTEGER',
-			title   => 'VARCHAR(256)',
-			author	=> 'Author',
-			content => 'TEXT'
-		}
-	};
-	pubject Author => {
-		columns => ['id', 'name', 'login', 'psswd', 'email'],
-		driver  => $self->{driver},
-		datasource => $self->{datasource},
-		tmap => {
-			psswd => 'ENCRYPT'
-		}
-	};	
-	ok(1);
+    pobject User => {
+        columns     => ['id', 'name', 'login', 'psswd', 'activation_key'],
+        driver      => $self->{driver},
+        datasource  => $self->{datasource},
+        serializer  => 'storable',
+        tmap        => {
+            login       => 'CHAR(18)',
+            psswd       => 'ENCRYPT',
+            name        => 'VARCHAR(40)',
+            id          => 'INTEGER',
+            activation_key => 'MD5'
+        }
+    };
+    ok(1);
+
+    ################
+    #
+    # Creating a new user
+    #
+    my $u = new User();
+    ok($u);
+    $u->name("Sherzod Ruzmetov");
+    $u->login("sherzodr");
+    $u->psswd("marley01");
+    $u->activation_key("geek");
+
+    print $u->dump;
+    #exit(0);
+
+    ################
+    #
+    # checking integrity of data before saving to disk
+    #
+    ok($u->name            eq "Sherzod Ruzmetov");
+    ok($u->login        eq "sherzodr");
+    ok($u->psswd        eq "marley01", $u->psswd);
+    ok($u->activation_key eq "geek", $u->activation_key);
+
+    ok(ref($u->name)    eq 'VARCHAR');
+    ok(ref($u->login)    eq 'CHAR');
+    ok(ref($u->id)        eq 'INTEGER');
+    ok(ref($u->psswd)    eq 'ENCRYPT');
+    ok(ref($u->activation_key) eq 'MD5');
+
+    #print $u->dump;
+
+    # let's check if we can assign objects directly
+    my $name = VARCHAR->new(id=>"Sherzod Ruzmetov (e)", args=>40);
+    ok($name, $name);
+    $u->name( $name );
+    ok($u->name            eq "Sherzod Ruzmetov (e)", $u->name);
+    ok(ref($u->name)    eq "VARCHAR", ref($u->name));
+
+    #print $u->dump;
+
+    $u->name( "Sherzod Ruzmetov" );
+    ok($u->name            eq "Sherzod Ruzmetov", $u->name);
+    ok(ref($u->name)    eq "VARCHAR", ref($u->name));
+
+    #print $u->dump;
+
+    ok(my $id = $u->save, $u->errstr);
+
+    $u =  undef;
+
+    $u = User->load($id);
+    ok($u);
+
+    #print $u->dump;
+
+    ################
+    #
+    # checking integrity of data after loaded from disk
+    #
+    ok($u->name            eq "Sherzod Ruzmetov");
+    ok($u->login        eq "sherzodr");
+    ok($u->psswd        eq "marley01", $u->psswd);
+
+    ok(ref($u->name)    eq 'VARCHAR');
+    ok(ref($u->login)    eq 'CHAR');
+    ok(ref($u->id)        eq 'INTEGER');
+    ok(ref($u->psswd)    eq 'ENCRYPT');
+
+    ################
+    #
+    # Updating the values again
+    #
+    $u->name("Sherzod Ruzmetov (e)");
+    $u->psswd("marley02)");
+
+    ok($u->psswd        eq "marley02", $u->psswd);
+    ok($u->name            eq "Sherzod Ruzmetov (e)");
+    ok($u->activation_key eq "geek");
+    ok(ref($u->psswd)    eq 'ENCRYPT');
+    ok(ref($u->activation_key), 'MD5');
+    ok($u->save == $id, $u->errstr);
+
+
+    ################
+    #
+    # Checking load(\%terms, undef) syntax
+    #
+    
+    $u = User->load({login=>'sherzodr'});
+    ok($u);
+    ok($u->psswd        eq "marley02");
+    ok($u->activation_key eq "geek");
+
+    ok(User->count == 1);
+    ok(User->remove_all());
+    ok(User->count == 0)
 }
 
 
@@ -47,100 +137,38 @@ sub run {
 
 
 
-
+package VARCHAR;
+use vars ('@ISA');
+use Class::PObject::Type::VARCHAR;
+@ISA = ("Class::PObject::Type::VARCHAR");
 
 
 1;
 __END__
-# Below is stub documentation for your module. You'd better edit it!
 
 =head1 NAME
 
-Class::PObject::Test::Basic - Class::PObject's basic test suit
+Class::PObject::Test::Types - Class::PObject't types test suits
 
 =head1 SYNOPSIS
 
     # inside t/*.t files:
-    use Class::PObject::Test::Basic;
-    $t = new Class::PObject::Test::Basic($drivername, $datasource);
+    use Class::PObject::Test::Types;
+    $t = new Class::PObject::Test::Types($drivername, $datasource);
     $t->run() # running the tests
-
-=head1 ABSTRACT
-
-    Class::PObject::Test::Basic is a subclass of Class::PObject::Test::Basic,
-    and is used for running basic tests for a specific driver.
 
 =head1 DESCRIPTION
 
-This library is particularly useful for Class::PObject driver authors. It provides
-a convenient way of testing your newly created PObject driver to see if it functions
-properly, as well as helps you to write test scripts with literally couple of lines
-of code.
-
-Class::PObject::Test::Basic is a subclass of L<Class::PObject::Test>.
-
-=head1 NATURE  OF TESTS
-
-Class::POBject::Test::Basic runs tests to check following aspects of the driver:
-
-=over 4
-
-=item *
-
-C<pobject> declarations.
-
-=item *
-
-Creating and initializing pobject instances
-
-=item *
-
-Proper functionality of the accessor methods and integrity of in-memory data
-
-=item *
-
-Synchronization of in-memory data into disk
-
-=item *
-
-If basic load() performs as expected, in both array and scalar context.
-
-=item *
-
-Checking the integrity of synchronized disk data
-
-=item *
-
-Checking for count() - both simple syntax, and count(\%terms) syntax.
-
-=item *
-
-Checking different combinations of C<load(undef, \%args)>, C<load(\%terms, undef)>,
-C<load(\%terms, \%args)>
-
-=item *
-
-Checking if objects can be removed off the disk successfully
-
-=back
-
-In addition to the above tests, Class::PObject::Test::Basic also address such issues
-as I<multiple instances of the same object> as well as I<multiple classes and multiple objects>
-cases, which have been major sources for bugs for L<Class::PObject> drivers.
+F<Types.pm> is a test suit similar to L<Class::PObject::Test::Basic|Class::PObject::Test::Basic>,
+but concentrates on column type specification
 
 =head1 SEE ALSO
 
-L<Class::PObject::Test>, L<Class::PObject>, L<Class::PObject::Driver>
-
-=head1 AUTHOR
-
-Sherzod B. Ruzmetov, E<lt>sherzodr@cpan.orgE<gt>, http://author.handalak.com/
+L<Class::PObject::Test::Basic>,
+L<Class::PObject::Test::HAS_A>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut

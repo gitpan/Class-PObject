@@ -1,6 +1,6 @@
 
 
-# $Id: 01basic_file.t,v 1.6 2003/08/25 12:59:11 sherzodr Exp $
+# $Id: 01basic_file.t,v 1.7.2.1 2003/09/06 09:57:08 sherzodr Exp $
 BEGIN {
     for ( "Storable" ) {
         eval "require $_";
@@ -15,7 +15,7 @@ BEGIN {
 use File::Spec;
 use Class::PObject::Test::Basic;
 
-my $t = new Class::PObject::Test::Basic('file', File::Spec->catfile('data', 'file'));
+my $t = new Class::PObject::Test::Basic(undef, File::Spec->catfile('data', 'basic', 'file'));
 $t->run();
 
 

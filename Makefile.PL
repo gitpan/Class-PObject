@@ -1,6 +1,6 @@
 
 
-# $Id: Makefile.PL,v 1.12 2003/08/28 02:02:51 sherzodr Exp $
+# $Id: Makefile.PL,v 1.13.2.1 2003/09/05 12:17:17 sherzodr Exp $
 
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
@@ -10,6 +10,7 @@ WriteMakefile(
     NAME	=> 'Class::PObject',
     VERSION_FROM=> 'PObject.pm',
     PREREQ_PM	=> {
+		'Data::Dumper'	=> 0,
 	    'Storable'      => 0,
 	    'IO::Dir'       => 0,
 	    'Test::More'    => 0,
@@ -26,6 +27,7 @@ sub postamble {
 	return <<'TAG';
 realclean::
 	$(RM_RF) data
+	$(RM_RF) core.*
 TAG
 }
 

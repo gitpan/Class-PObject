@@ -1,8 +1,9 @@
 package Class::PObject::Driver::DBM;
 
-# $Id: DBM.pm,v 1.5 2003/08/27 00:23:37 sherzodr Exp $
+# $Id: DBM.pm,v 1.6.2.2 2003/09/06 10:14:57 sherzodr Exp $
 
 use strict;
+#use diagnostics;
 use Carp;
 use Class::PObject::Driver;
 use File::Spec;
@@ -22,7 +23,7 @@ sub save {
         my $lastid = $dbh->{_lastid} || 0;
         $columns->{id} = ++$dbh->{_lastid}
     }
-    $dbh->{ "!ID:" . $columns->{id} } = $self->freeze($columns);
+    $dbh->{ "!ID:" . $columns->{id} } = $self->freeze($object_name, $properties, $columns);
     $unlock->();
     return $columns->{id}
 }
@@ -40,7 +41,7 @@ sub load_ids {
             $n++ == $args->{limit} and last
         }
         $k =~ /!ID:/ or next;
-        my $data = $self->thaw( $v );
+        my $data = $self->thaw( $object_name, $properties, $v );
         if ( $self->_matches_terms($data, $terms) ) {
             push @data_set, keys %$args ? $data : $data->{id}
         }
@@ -62,7 +63,7 @@ sub load {
     my ($self, $object_name, $props, $id) = @_;
 
     my (undef, $dbh, $unlock) = $self->dbh($object_name, $props) or return undef;
-    return $self->thaw($dbh->{ "!ID:" . $id })
+    return $self->thaw($object_name, $props, $dbh->{ "!ID:" . $id })
 }
 
 
@@ -139,7 +140,6 @@ sub _lock {
 
 1;
 __END__
-# Below is stub documentation for your module. You'd better edit it!
 
 =head1 NAME
 
@@ -202,9 +202,24 @@ on the C<$lock_type>, which can be either of I<w> or I<r>.
 
 Returns a reference to an action (subroutine), which perform unlocking for this particular
 lock. On failure returns undef. C<_lock()> is usually called from within C<dbh()>, and return
-value is returned together with database hadnles.
+value is returned together with database handles.
 
 =back
+
+=head1 NOTES
+
+Currently the only record index is the I<id> column. By introducing configurable indexes,
+object selections (through C<load()> method) can be improved tremendously. Syntax similar 
+to the following may suffice:
+
+    pobject Article => {
+        columns         => ['id', 'title', 'author', 'content'],
+        indexes         => ['title', 'author'],
+        driver          => 'db_file',
+        datasource      => './data'
+    }
+        
+This issue is to be addressed in subsequent releases.
 
 =head1 SEE ALSO
 
@@ -212,15 +227,8 @@ L<Class::PObject::Driver>,
 L<Class::PObject::Driver::DB_File>
 L<Class::PObject::Driver::DBI>
 
-=head1 AUTHOR
-
-Sherzod B. Ruzmetov, E<lt>sherzodr@cpan.orgE<gt>, http://author.handalak.com/
-
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself. 
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut

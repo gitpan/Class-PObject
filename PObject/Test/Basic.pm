@@ -1,6 +1,7 @@
 package Class::PObject::Test::Basic;
 
 use strict;
+#use diagnostics;
 use Test::More;
 use Class::PObject;
 use Class::PObject::Test;
@@ -12,7 +13,7 @@ $VERSION = '1.00';
 
 
 BEGIN {
-    plan(tests => 154);
+    plan(tests => 156);
     use_ok("Class::PObject")
 }
 
@@ -23,7 +24,8 @@ sub run {
     pobject 'PO::Author' => {
         columns     => ['id', 'name', 'url', 'email'],
         driver      => $self->{driver},
-        datasource  => $self->{datasource}
+        datasource  => $self->{datasource},
+        serializer  => 'storable'
     };
     ok(1);
 
@@ -31,7 +33,8 @@ sub run {
     pobject 'PO::Article' => {
         columns     => ['id', 'title', 'author', 'content', 'rating'],
         driver      => $self->{driver},
-        datasource  => $self->{datasource}
+        datasource  => $self->{datasource},
+        serializer  => 'storable'
     };
     ok(1);
 
@@ -52,6 +55,7 @@ sub run {
             ok(ref($_[0]) eq 'PO::Article')
         }
     }
+    
 
     ####################
     #
@@ -65,7 +69,6 @@ sub run {
 
     my $author3 = new PO::Author(name=>"Geek", email=>'sherzodr@cpan.org');
     ok($author3);
-
 
 
     my $article1 = new PO::Article();
@@ -85,6 +88,7 @@ sub run {
     ok(ref($author1->columns) eq 'HASH');
     ok(ref($author1->__props) eq 'HASH');
     ok(ref($author1->__driver) eq 'Class::PObject::Driver::' . $self->{driver});
+    
 
     ####################
     #
@@ -92,8 +96,11 @@ sub run {
     #
     ok($author1->can('id') && $author2->can('name') && $author3->can('email'));
     ok($author1->name ? 0 : 1);
+    #ok(1);
+    
 
     ok($article1->can('id') && $article2->can('title') && $article3->can('author'));
+    #exit;
 
     ####################
     #
@@ -103,13 +110,19 @@ sub run {
     $author1->url('http://author.handalak.com/');
     $author1->email('sherzodr@cpan.org');
 
+    my $name = $author1->name();
+    ok($name->isa("Class::PObject::Type"));
+    ok($name eq "Sherzod Ruzmetov");
+
     ok($author1->name eq "Sherzod Ruzmetov");
     ok($author1->email eq 'sherzodr@cpan.org');
     
     $author1->name(undef);
 
     ok($author1->name ? 0 : 1);
-    ok($author1->{_is_new} == 1);
+    #ok($author1->{_is_new} == 1);
+    ok(1);
+    #exit;
 
     $author2->name("Hilola Nasyrova");
     $author2->url('http://hilola.handalak.com/');
@@ -452,11 +465,6 @@ Class::PObject::Test::Basic - Class::PObject's basic test suit
     $t = new Class::PObject::Test::Basic($drivername, $datasource);
     $t->run() # running the tests
 
-=head1 ABSTRACT
-
-    Class::PObject::Test::Basic is a subclass of Class::PObject::Test::Basic,
-    and is used for running basic tests for a specific driver.
-
 =head1 DESCRIPTION
 
 This library is particularly useful for Class::PObject driver authors. It provides
@@ -464,70 +472,22 @@ a convenient way of testing your newly created PObject driver to see if it funct
 properly, as well as helps you to write test scripts with literally couple of lines
 of code.
 
-Class::PObject::Test::Basic is a subclass of L<Class::PObject::Test>.
+This same class is also used by L<Class::PObject|Class::PObject>'s standard test scripts
+
+Class::PObject::Test::Basic is a subclass of L<Class::PObject::Test|Class::PObject::Test>.
 
 =head1 NATURE  OF TESTS
 
-Class::POBject::Test::Basic runs tests to check following aspects of the driver:
-
-=over 4
-
-=item *
-
-C<pobject> declarations.
-
-=item *
-
-Creating and initializing pobject instances
-
-=item *
-
-Proper functionality of the accessor methods and integrity of in-memory data
-
-=item *
-
-Synchronization of in-memory data into disk
-
-=item *
-
-If basic load() performs as expected, in both array and scalar context.
-
-=item *
-
-Checking the integrity of synchronized disk data
-
-=item *
-
-Checking for count() - both simple syntax, and count(\%terms) syntax.
-
-=item *
-
-Checking different combinations of C<load(undef, \%args)>, C<load(\%terms, undef)>,
-C<load(\%terms, \%args)>
-
-=item *
-
-Checking if objects can be removed off the disk successfully
-
-=back
-
-In addition to the above tests, Class::PObject::Test::Basic also address such issues
-as I<multiple instances of the same object> as well as I<multiple classes and multiple objects>
-cases, which have been major sources for bugs for L<Class::PObject> drivers.
+This test suite tests the driver's ability to perform most of the functionality
+as discussed in Class::PObject's L<manual|Class::PObject>.
 
 =head1 SEE ALSO
 
-L<Class::PObject::Test>, L<Class::PObject>, L<Class::PObject::Driver>
-
-=head1 AUTHOR
-
-Sherzod B. Ruzmetov, E<lt>sherzodr@cpan.orgE<gt>, http://author.handalak.com/
+L<Class::PObject::Test::Types>,
+L<Class::PObject::Test::HAS_A>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut

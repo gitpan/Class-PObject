@@ -1,13 +1,14 @@
 package Class::PObject::Test;
 
-# $Id: Test.pm,v 1.2 2003/08/23 04:06:25 sherzodr Exp $
+# $Id: Test.pm,v 1.2.10.2 2003/09/06 10:14:56 sherzodr Exp $
 
 use strict;
+#use diagnostics;
 use Carp;
 use Class::PObject;
 use vars ('$VERSION');
 
-$VERSION = '1.00';
+$VERSION = '1.01';
 
 sub new {
     my $class = shift;
@@ -61,13 +62,13 @@ Class::PObject::Test - Base test framework for Class::PObject drivers
 
 Class::PObject::Test is used as a base class by test libraries, and provides
 two methods, C<new()> and C<run()>. Subclasses of Class::PObject::Test are
-expected to override C<run()> method.
+expected to override C<run()>.
 
 =head2 IS THIS WAY OF TESTING NECESSARY
 
 Same sets of tests must be performed for every single driver available to ensure
 all the drivers are compatible. That's why, instead of putting redundant chunks of
-codes in multiple F<t/*.t> files, we simply create a library, which can run same
+codes in multiple F<t/*.t> files, we created a library, which can run same
 tests for different drivers.
 
 For example, to run some basic/core tests on C<file> driver, we do:
@@ -87,7 +88,6 @@ To run these same set of tests for F<mysql> driver, for example, we can do:
 and so on.
 
 This will ensure that same exact tests are run for every driver.
-
 
 =head1 METHODS
 
@@ -133,15 +133,8 @@ functionality.
 
 L<Class::PObject::Test::Basic>
 
-=head1 AUTHOR
-
-Sherzod B. Ruzmetov, E<lt>sherzodr@cpan.orgE<gt>, http://author.handalak.com/
-
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut

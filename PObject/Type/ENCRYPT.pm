@@ -1,42 +1,26 @@
 package Class::PObject::Type::ENCRYPT;
 
-# $Id: ENCRYPT.pm,v 1.1 2003/08/27 20:36:55 sherzodr Exp $
+# $Id: ENCRYPT.pm,v 1.1.2.4 2003/09/06 10:15:00 sherzodr Exp $
 
 use strict;
+#use diagnostics;
 use vars ('$VERSION', '@ISA');
-use Carp;
-use Data::Dumper;
-use Digest::MD5 ("md5_hex");
-use base("Class::PObject::Type");
-
+use Carp "croak";
 use overload (
-	'eq'    => \&compare,
-	fallback => 1
+    'eq' => sub { crypt($_[1], $_[0]->id) eq $_[0]->id },
+    fallback => 1
 );
 
-$VERSION = '0.01';
+@ISA = ("Class::PObject::Type");
+$VERSION = "1.00";
 
+sub _init {
+    my $self = shift;
+    defined( $self->id ) or return undef;
 
-
-sub encode {
-	my ($class, $value, $args) = @_;
-	unless ( $value ) {
-		return undef
-	}
-	$args ||= join '', ('.', '/', 0..9, 'A'..'Z', 'a'..'z')[rand 64, rand 64];
-	return crypt($value, $args)
+    my $salt = join '', ('.', '/', 0..9, 'A'..'Z', 'a'..'z')[rand 64, rand 64];
+    $self->{id} =  crypt($self->id, $salt)
 }
-
-
-
-sub compare {
-	my ($self, $string) = @_;
-
-	return crypt($string, $self->as_string) eq $self->as_string
-}
-
-
-
 
 
 1;
@@ -51,15 +35,8 @@ Class::PObject::Type::ENCRYPT - Defines ENCRYPT column type
 
 ISA L<Class::PObject::Type|Class::PObject::Type>
 
-=head1 AUTHOR
-
-Sherzod B. Ruzmetov, E<lt>sherzodr@cpan.orgE<gt>
-
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself. 
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut

@@ -1,8 +1,9 @@
 package Class::PObject::Driver;
 
-# $Id: Driver.pm,v 1.13 2003/08/27 08:43:46 sherzodr Exp $
+# $Id: Driver.pm,v 1.14.2.2 2003/09/06 10:14:56 sherzodr Exp $
 
 use strict;
+#use diagnostics;
 use Carp;
 use Log::Agent;
 use vars ('$VERSION');
@@ -170,7 +171,7 @@ sub _matches_terms {
     my $class = ref($self) || $self;
     my ($data, $terms) = @_;
 
-    logtrc 3, "%s->_matches_terms(%s)", $class, join ", ", @_;
+    logtrc 3, "%s->_matches_terms(@_)", $class;
     unless ( keys %$terms ) {
         return 1
     }
@@ -178,6 +179,7 @@ sub _matches_terms {
     # provided. If even one of those terms are not satisfied,
     # return false
     while ( my ($column, $value) = each %$terms ) {
+        $^W = 0;
         if ( $data->{$column} ne $value ) {
             return 0
         }
@@ -189,22 +191,47 @@ sub _matches_terms {
 
 
 sub freeze {
-    my ($self, $data) = @_;
+    my ($self, $object_name, $props, $data) = @_;
 
-    require Storable;
-    return Storable::freeze($data)
+    my $rv = undef;
+    $props->{serializer} ||= "storable";
+    if ( $props->{serializer} eq "xml" ) {
+        require XML::Dumper;
+        my $d = XML::Dumper->new();
+        $rv = $d->pl2xml( $data );
+    } elsif ( $props->{serializer} eq "dumper" ) {
+        require Data::Dumper;
+        my $d = Data::Dumper->new([$data]);
+        $d->Terse(1);
+        $d->Indent(0);
+        $rv =  $d->Dump();
+    } else {
+        require Storable;
+        $rv = Storable::freeze( $data )
+    }
+    return $rv
 }
+
 
 
 
 sub thaw {
-    my ($self, $datastr) = @_;
+    my ($self, $object_name, $props, $datastr) = @_;
 
-    require Storable;
-    return Storable::thaw($datastr)
+    my $rv = undef;
+    $props->{serializer} ||= "storable";
+    if ( $props->{serializer} eq "xml" ) {
+        require XML::Dumper;
+        my $d = XML::Dumper->new();
+        $rv = $d->xml2pl( $datastr );
+    } elsif ( $props->{serializer} eq "dumper" ) {
+        $rv = eval $datastr;
+    } else {
+        require Storable;
+        $rv = Storable::thaw( $datastr );
+    }
+    return $rv
 }
-
-
 
 
 
@@ -240,19 +267,22 @@ Class::PObject::Driver is a base class for all the Object drivers.
 
 Driver is another library Class::PObject uses only when disk access is necessary.
 So you can still use Class::PObject without any valid driver, but it won't be
-persistent object now, would it? If you want to creating on-the-fly, non-persistent
-objects, you are better off with L<Class::Struct|Class::Struct>.
+persistent object now, would it? 
 
-Driver's certain methods will be invoked when load(), save(), count(), remove() and remove_all() methods
-of Class::PObject are called. They receive certain arguments, and are required to return certain values.
+    If you want to create on-the-fly, non-persistent
+    objects, you are better off with Class::Struct
+
+Driver's certain methods will be invoked when C<load()>, C<save()>, C<count()>, C<remove()> 
+and C<remove_all()> methods of L<Class::PObject|Class::PObject> are called. 
+They receive certain arguments, and are required to return certain values.
 
 =head1 DRIVER SPECIFICATION
 
 All the Class::PObject drivers should subclass Class::PObject::Driver,
-thus they all should begin with the following lines:
+thus they all should begin with the following lines or equivalent
 
-  package Class::PObject::Driver::my_driver;
-  use base ('Class::PObject::Driver');
+    package Class::PObject::Driver::my_driver;
+    use base ("Class::PObject::Driver");
 
 Exceptions may be L<DBI|DBI>-related drivers, which are better off subclassing
 L<Class::PObject::Driver::DBI|Class::PObject::Driver::DBI> and DBM-related drivers, 
@@ -265,35 +295,16 @@ Methods that L<Class::PObject::Driver> defines are:
 =item stash($key [,$value])
 
 For storing data in the driver object safely. This is mostly useful for caching the return value
-of certain expensive operations that may be used over and over again. Do not try to store data specific
-to individual pobject classes, such as its columns, or datasource. Class::PObject will try to
-keep the driver object for as long as possible, even longer than current pobject's scope. So you
-really should stash() only the data that is less likely to depend on each pobject. Good example is
+of certain expensive operations that may be used over and over again. Good example is
 stash()ing database connection.
 
 For example, consider the following example:
 
   $dbh = DBI->connect(...);
-  $self->stash('dbh', $dbh);    # WRONG!
+  $self->stash($dsn, $dbh);
 
   # ... later, in some other method:
   $dbh = $self->stash( 'dbh' );
-
-The above example works as expected in some cases, since most projects use the same
-database connection to access several pobjects. So it's safe to associate the database
-handle with string I<'dbh'>.
-
-However, sometimes several I<pobjects> can use several database connections. In cases like
-these the above code will not work. Because the first created $dbh will also be used
-to synchronize the second object data. Instead, you should do something like this:
-
-    $dbh = DBI->connect(...);
-    $self->stash($dsn, $dbh);   # RIGHT!
-
-    # ... later, in some other method:
-    $dbh = $self->stash( $dsn );
-
-C<$dsn> in the above example is analogous to I<Name> DBI attribute
 
 =item errstr($message)
 
@@ -308,11 +319,8 @@ receive the driver object as the first argument.
 
 =head1 WHAT SHOULD DRIVER DO?
 
-Driver should inherit from either Class::PObject::Driver or L<Class::PObject::Driver::DBI>,
-and override several methods with those relevant to the specific storage method/device.
-
-All the driver methods accept at least 3 same arguments: C<$self> - driver object,
-C<$pobject_name> - name of the pobject and C<\%properties> hashref of all the properties
+All the driver methods accept at least three same arguments: C<$self> - driver object,
+C<$class_name> - name of the class and C<\%properties> hashref of all the properties
 as passed to C<pobject()> as the second (or first) argument in the form of a hashref.
 
 These arguments are relevant to all the driver methods, unless noted otherwise.
@@ -333,7 +341,7 @@ of your own.
 =item C<save($self, $pobject_name, \%properties, \%columns)>
 
 Whenever a user calls C<save()> method of I<pobject>, that method calls your driver's
-C<save()> method.
+C<save()> method in turn.
 
 In addition to standard arguments, C<save()> accepts C<\%columns>, which is a
 hash of column names and their respective values to be stored into disk.
@@ -408,19 +416,45 @@ On success should return a digit, representing a count of objects.
 
 =back
 
+=head1 UTILITY METHODS
+
+Class::PObject::Driver provides several utility methods for you to ease the serialization
+of data.
+
+These methods consult C<serializer> attribute of pobject declaration to discover
+what type of serialization to be used. Available attributes are, I<xml>, which 
+serializes the data into an XML document using L<XML::Dumper|XML::Dumper>; 
+I<dumper>, which serializes the data into pretty-printed string using L<Data::Dumper|Data::Dumper>;
+I<storable>, which serializes the data using L<Stroable|Storable>.
+
+Default is I<storable>, for backward compatibility.
+
+Following are the specs of these methods.
+
+=over 4
+
+=item C<freeze($self, $object_name, \%properties, $hashref)>
+
+In addition to standard arguments, accepts C<$hashref>, which is an in-memory perl Hash
+table needed to be serialized into a string.
+
+Should return serialized string on success, undef otherwise.
+
+=item C<thaw($self, $object_name, \%properties, $datastr)>
+
+Should reverse the serialization process performed by C<freeze()>.
+
+In addition to standard arguments, accepts C<$datastr>, which is a serialized string
+needed to be de-serialized into in-memory Perl data.
+
+=back
+
 =head1 SEE ALSO
 
 L<Class::PObject::Driver::DBI>
 
-=head1 AUTHOR
-
-Sherzod B. Ruzmetov E<lt>sherzodr@cpan.orgE<gt>
-
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut

@@ -1,42 +1,25 @@
 package Class::PObject::Type::MD5;
 
-# $Id: MD5.pm,v 1.1 2003/08/27 20:36:55 sherzodr Exp $
+# $Id: MD5.pm,v 1.1.2.4 2003/09/06 10:15:00 sherzodr Exp $
 
 use strict;
+#use diagnostics;
 use vars ('$VERSION', '@ISA');
-use Carp;
-use Data::Dumper;
 use Digest::MD5 ("md5_hex");
-use base("Class::PObject::Type");
-
+use Class::PObject::Type;
 use overload (
-	'eq'    => \&compare,
-	fallback => 1
+    'eq'    => sub { $_[0]->id eq md5_hex($_[1]) },
+    fallback => 1,
 );
 
+$VERSION = '1.00';
+@ISA = ("Class::PObject::Type");
 
-$VERSION = '0.01';
-
-
-
-sub encode {
-	my ($class, $value, $args) = @_;
-	unless ( $value ) {
-		return undef
-	}
-	return md5_hex($value)
+sub _init {
+    my $self = shift;
+    $self->id or return undef;
+    $self->{id} = md5_hex($self->id)
 }
-
-
-
-
-sub compare {
-	my ($self, $string) = @_;
-
-	return $self->{value} eq $self->encode($string)
-}
-
-
 
 1;
 __END__
@@ -50,15 +33,8 @@ Class::PObject::Type::MD5 - Defines MD5 column type
 
 ISA L<Class::PObject::Type|Class::PObject::Type>
 
-=head1 AUTHOR
-
-Sherzod B. Ruzmetov, E<lt>sherzodr@cpan.orgE<gt>
-
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself. 
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut

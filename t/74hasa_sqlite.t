@@ -1,5 +1,5 @@
 
-# $Id: 21basic_sqlite.t,v 1.3.8.1 2003/09/06 09:57:08 sherzodr Exp $
+# $Id: 74hasa_sqlite.t,v 1.1.2.1 2003/09/06 09:57:08 sherzodr Exp $
 
 BEGIN {
     for ( "DBD::SQLite" ) {
@@ -12,7 +12,7 @@ BEGIN {
 }
 
 require File::Spec;
-my $db = File::Spec->catfile('data', 'basic', 'sqlite');
+my $db = File::Spec->catfile('data', 'has_a', 'sqlite');
 
 if ( -e $db ) {
     unlink($db)
@@ -22,21 +22,17 @@ eval {
     $dbh->do(qq|
         CREATE TABLE po_author (
             id INTEGER PRIMARY KEY,
-            name VARCHAR(200),
-            email VARCHAR(200),
-            url VARCHAR(200)
+            name VARCHAR(200)
         )|);
     $dbh->do(qq|
         CREATE TABLE po_article (
             id INTEGER PRIMARY KEY,
             title VARCHAR(200),
-            author INTGER,
-            rating INTEGER,
-            content TEXT 
+            author INTGER
         )|);
 };
 
-use Class::PObject::Test::Basic;
-my $t = new Class::PObject::Test::Basic('sqlite', $db);
+use Class::PObject::Test::HAS_A;
+my $t = new Class::PObject::Test::HAS_A('sqlite', $db);
 $t->run()
 

@@ -1,6 +1,6 @@
-package Class::PObject::Type::VARCHAR;
+package Class::PObject::Type::CHAR;
 
-# $Id: VARCHAR.pm,v 1.1.2.3 2003/09/06 10:15:00 sherzodr Exp $
+# $Id: CHAR.pm,v 1.1.2.3 2003/09/06 10:15:00 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -8,7 +8,7 @@ use vars ('$VERSION', '@ISA');
 use Class::PObject::Type;
 @ISA = ("Class::PObject::Type");
 
-$VERSION = '1.02';
+$VERSION = '1.00';
 
 
 
@@ -20,7 +20,7 @@ __END__
 
 =head1 NAME
 
-Class::PObject::Type::VARCHAR - Defines VARCHAR column type
+Class::PObject::Type::CHAR - Defines CHAR column type
 
 =head1 DESCRIPTION
 

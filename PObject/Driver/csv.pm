@@ -1,9 +1,9 @@
 package Class::PObject::Driver::csv;
 
-# $Id: csv.pm,v 1.15 2003/09/02 22:09:32 sherzodr Exp $
+# $Id: csv.pm,v 1.15.2.2 2003/09/06 10:14:57 sherzodr Exp $
 
 use strict;
-use Carp;
+#use diagnostics;
 use Log::Agent;
 use File::Spec;
 use vars ('$VERSION', '@ISA');
@@ -181,7 +181,8 @@ I<datasource> attribute should be in the form of a hashref. The following keys a
 =item *
 
 C<Dir> - points to the directory where the CSV files are stored. If this is missing
-will default to your system's temporary folder.
+will default to your system's temporary folder. If the Dir is provided, and it doesn't
+exist, it will be created for you.
 
 =item *
 
@@ -223,20 +224,28 @@ for you.
 
 =back
 
+=head1 NOTES
+
+I<csv> driver can get incredibly processor intensive once the number of records exceeds
+1,000. This can be fixed by providing indexing functionality to the driver, which it currently
+misses.
+
+Main issue of the driver is in its C<save()> method, where it first needs to SELECT the records
+to find out if the record being inserted exists or not. Then, depending on its discoveries
+either runs INSERT or UPDATE queries.
+
+C<generate_id()> method could also be improved by allowing it to keep track of record count
+in a separate file.
+
+All these issues need to be addressed in subsequent releases of the library.
+
 =head1 SEE ALSO
 
 L<Class::PObject>, L<Class::PObject::Driver::mysql>,
 L<Class::PObject::Driver::file>
 
-=head1 AUTHOR
-
-Sherzod Ruzmetov E<lt>sherzodr@cpan.orgE<gt>
-
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself. 
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut

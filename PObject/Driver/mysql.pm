@@ -1,8 +1,9 @@
 package Class::PObject::Driver::mysql;
 
-# $Id: mysql.pm,v 1.19 2003/08/27 00:23:37 sherzodr Exp $
+# $Id: mysql.pm,v 1.19.4.2 2003/09/06 10:14:58 sherzodr Exp $
 
 use strict;
+#use diagnostics;
 use Log::Agent;
 use vars ('@ISA', '$VERSION');
 require Class::PObject::Driver::DBI;
@@ -96,14 +97,8 @@ sub dbh {
     return $dbh
 }
 
-
-
-
-
 1;
 __END__;
-
-=pod
 
 =head1 NAME
 
@@ -193,15 +188,8 @@ that MySQL will take care of creating auto-incrementing unique object ids for yo
 L<Class::PObject>, L<Class::PObject::Driver::csv>,
 L<Class::PObject::Driver::file>
 
-=head1 AUTHOR
-
-Sherzod Ruzmetov E<lt>sherzodr@cpan.orgE<gt>
-
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself. 
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut

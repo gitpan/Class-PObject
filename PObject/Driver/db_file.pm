@@ -1,6 +1,7 @@
 package Class::PObject::Driver::db_file;
 
 use strict;
+#use diagnostics;
 use vars ('$VERSION', '@ISA');
 use Carp;
 use DB_File;
@@ -15,7 +16,7 @@ sub dbh {
 
     my $filename = $self->_filename($object_name, $props);
     my ($DB, %dbh, $unlock);
-    my $unlock = $self->_lock($filename, $lock_type||'r') or return undef;
+    $unlock = $self->_lock($filename, $lock_type||'r') or return undef;
     unless ( $DB = tie %dbh, "DB_File", $filename, O_RDWR|O_CREAT, 0600 ) {
         $self->errstr("couldn't connect to '$filename': $!");
         return undef
@@ -73,7 +74,7 @@ Class::PObject::Driver::db_file - DB_File PObject driver
 =head1 DESCRIPTION
 
 Class::PObject::Driver::db_file is a direct subclass of
-L<LClass::PObject::Driver::DBM|Class::PObject::Driver::DBM>.
+L<Class::PObject::Driver::DBM|Class::PObject::Driver::DBM>.
 
 =head1 METHODS
 
@@ -92,15 +93,8 @@ C<dbh($self, $pobject_name, \%properties)> -  returns a reference to a hash tied
 L<Class::PObject::Driver>
 L<Class::PObject::Driver::DBM>
 
-=head1 AUTHOR
-
-Sherzod B. Ruzmetov, E<lt>sherzodr@cpan.orgE<gt>, http://author.handalak.com/
-
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut

@@ -1,18 +1,20 @@
 package Class::PObject::Template;
 
-# $Id: Template.pm,v 1.16 2003/08/28 16:32:24 sherzodr Exp $
+# $Id: Template.pm,v 1.17.2.7 2003/09/06 10:14:56 sherzodr Exp $
 
 use strict;
+#use diagnostics;
 use Log::Agent;
+use Carp;
 use vars ('$VERSION');
 
-$VERSION = '1.02';
+$VERSION = '1.03';
 
 sub new {
     my $class = shift;
     $class    = ref($class) || $class;
 
-    logtrc 2, "%s->new(%s)", $class, join ", ", @_;
+    logtrc 2, "%s->new()", $class;
 
     # What should be done if we detect odd number of arguments?
     # I'd say we should croak() right away. We don't want to
@@ -31,7 +33,7 @@ sub new {
         _is_new     => 1
     };
 
-	bless($self, $class);
+    bless($self, $class);
 
     # It's possible that new() was not given all the column/values. So we
     # detect the ones missing, and assign them 'undef'
@@ -55,6 +57,58 @@ sub new {
 
 
 
+sub set {
+    my $self = shift;
+    my ($colname, $colvalue) = @_;
+
+    unless ( @_ == 2  ) {
+        logcroak "%s->set() usage error", ref($self)
+    }
+    #return $self->{columns}->{$colname} = ref($colvalue) ? $colvalue->id : $colvalue;
+
+    my $props = $self->__props();
+    my ($typeclass, $args) = $props->{tmap}->{$colname} =~ m/^([a-zA-Z0-9_:]+)(?:\(([^\)]+)\))?$/;
+    logtrc 3, "col: %s, type: %s, args: %s", $colname, $typeclass, $args;
+    if ( ref $colvalue eq $typeclass ) {
+        $self->{columns}->{$colname} = $colvalue;
+    } else {
+        $self->{columns}->{$colname} = $typeclass->new(id=>$colvalue);
+    }
+}
+
+
+
+
+
+sub get {
+    my ($self, $colname) = @_;
+
+    unless ( defined $colname ) {
+        logcroak "%s->get() usage error", ref($self)
+    }
+    
+    my $colvalue = $self->{columns}->{$colname};
+    # if we already have this value in our cache, let's return it
+    if ( ref $colvalue ) {
+        return $colvalue
+    }
+
+    # if we come this far, this value is being inquiried for the first
+    # time. So we should load() it. 
+    # To do this, we first need to identify its column type, to know how
+    # to inflate it.
+    my $props                = $self->__props();
+    my ($typeclass, $args)    = $props->{tmap}->{ $colname } =~ m/^([a-zA-Z0-9_:]+)(?:\(([^\)]+)\))?$/;
+    unless ( $typeclass ) {
+        logcroak "%s->set(): couldn't detect typeclass for this column (%s)", ref($self), $colname
+    }
+
+    # we should cache the loaded object in the column
+    $self->{columns}->{$colname} = $typeclass->load($colvalue);
+    return $self->{columns}->{$colname}
+}
+
+
 
 sub save {
     my $self  = shift;
@@ -65,9 +119,18 @@ sub save {
     my $props = $self->__props();
     my $driver_obj = $self->__driver();
 
+    # We should realize that column values are of Class::PObject::Type
+    # class, so their values should be stringified before being
+    # passed to drivers' save() method.
+    my %columns = ();
+    while ( my ($k, $v) = each %{ $self->{columns} } ) {
+        $v = $v->id while ref $v;
+        $columns{$k} = $v
+    }
+
     # we now call the driver's save() method, with the name of the class,
     # all the props passed to pobject(), and column values to be stored
-    my $rv = $driver_obj->save($class, $props, $self->{columns});
+    my $rv = $driver_obj->save($class, $props, \%columns);
     unless ( defined $rv ) {
         $self->errstr($driver_obj->errstr);
         logerr $self->errstr;
@@ -88,14 +151,18 @@ sub fetch {
     my ($terms, $args) = @_;
     my $class = ref($self) || $self;
 
-    logtrc, "%s->fetch(%s)", $class, join ", ", @_;
+    logtrc 2, "%s->fetch()", $class;
 
     $terms ||= {};
     $args  ||= {};
-    
+
     my $props  = $self->__props();
     my $driver = $self->__driver();
 
+    while ( my ($k, $v) = each %$terms ) {
+        $v = $v->id while ref $v;
+        $terms->{$k} = $v
+    }
     my $ids = $driver->load_ids($class, $props, $terms, $args);
 
     require Class::PObject::Iterator;
@@ -114,7 +181,7 @@ sub load {
     my ($terms, $args) = @_;
     my $class = ref($self) || $self;
 
-    logtrc 2, "%s->load(%s)", $class, join ", ", @_;
+    logtrc 2, "%s->load()", $class;
 
     $terms ||= {};
     $args  ||= {};
@@ -136,30 +203,31 @@ sub load {
 
     # now, if we had a single argument, and that argument was not a HASH,
     # we assume we received an ID
-    if ( $terms && (ref($terms)  ne 'HASH') && ($terms =~ /^\d+$/) ) {
-        $ids = [ $terms ]
-
+    if ( $terms && (ref($terms)  ne 'HASH') ) {
+        $ids        = [ $terms ]
     } else {
-        $ids        = $driver_obj->load_ids($class, $props, $terms, $args) or return
-
+        while ( my ($k, $v) = each %$terms ) {
+            if ( $props->{tmap}->{$k} =~ m/^(MD5|ENCRYPT)$/ ) {
+                carp "cannot select by '$1' type columns (Yet!)"
+            }
+            # following trick will enable load(\%terms) syntax to work
+            # by passing objects. 
+            $terms->{$k} = $terms->{$k}->id while ref $terms->{$k};
+        }
+        $ids = $driver_obj->load_ids($class, $props, $terms, $args) or return
     }
-
-    unless ( scalar @$ids ) {
-        return ()
-    }
-
+    return () unless scalar(@$ids);
     # if called in array context, we return an array of objects:
     if (  wantarray() ) {
         my @data_set = ();
         for my $id ( @$ids ) {
             my $row = $driver_obj->load($class, $props, $id) or next;
-            my $o = $self->new(%$row);
+            my $o = $self->new( %$row );
             $o->{_is_new} = 0;
             push @data_set, $o
         }
         return @data_set
     }
-
     # if we come this far, we're being called in scalar context
     my $row = $driver_obj->load($class, $props, $ids->[0]) or return;
     my $o = $self->new( %$row );
@@ -202,15 +270,21 @@ sub remove {
 
 
 sub remove_all {
-    my $self = shift;
+    my ($self, $terms) = @_;
     my $class = ref($self) || $self;
 
-    logtrc 2, "%s->remove_all(%s)", $class, join ", ", @_;
+    logtrc 2, "%s->remove_all()", $class;
 
-    my $props = $self->__props();
-    my $driver_obj = $self->__driver();
+    $terms          ||= {};
+    my $props        = $self->__props();
+    my $driver_obj    = $self->__driver();
 
-    my $rv = $driver_obj->remove_all($class, $props, @_);
+    while ( my ($k, $v) = each %$terms ) {
+        $v = $v->id while ref $v;
+        $terms->{$k} = $v
+    }
+
+    my $rv = $driver_obj->remove_all($class, $props, $terms);
     unless ( defined $rv ) {
         $self->errstr($driver_obj->errstr());
         return undef
@@ -224,15 +298,20 @@ sub remove_all {
 
 
 sub count {
-    my $self = shift;
+    my ($self, $terms) = @_;
     my $class = ref($self) || $self;
 
-    logtrc 2, "%s->count(%s)", $class, join ", ", @_;
+    logtrc 2, "%s->count()", $class;
 
+    $terms         ||= {};
     my $props      = $self->__props();
     my $driver_obj = $self->__driver();
 
-    return $driver_obj->count($class, $props, @_)
+    while ( my ($k, $v) = each %$terms ) {
+        $v = $v->id while ref $v;
+        $terms->{$k} = $v
+    }
+    return $driver_obj->count($class, $props, $terms)
 }
 
 
@@ -247,6 +326,12 @@ sub errstr {
     }
     return ${ "$class\::errstr" }
 }
+
+
+
+
+
+
 
 
 
@@ -323,5 +408,53 @@ sub __driver {
     $get_set_driver->($driver_obj);
     return $driver_obj
 }
+
+
+
+
+
+
+
+package VARCHAR;
+use Class::PObject::Type::VARCHAR;
+use vars ('@ISA');
+@ISA = ("Class::PObject::Type::VARCHAR");
+
+
+
+
+package CHAR;
+use Class::PObject::Type::CHAR;
+use vars ('@ISA');
+@ISA = ("Class::PObject::Type::CHAR");
+
+
+
+
+package INTEGER;
+use Class::PObject::Type::INTEGER;
+use vars ('@ISA');
+@ISA = ("Class::PObject::Type::INTEGER");
+
+
+
+
+package TEXT;
+use Class::PObject::Type::TEXT;
+use vars ('@ISA');
+@ISA = ("Class::PObject::Type::TEXT");
+
+
+package ENCRYPT;
+use Class::PObject::Type::ENCRYPT;
+use vars ('@ISA');
+@ISA = ("Class::PObject::Type::ENCRYPT");
+
+
+package MD5;
+use Class::PObject::Type::MD5;
+use vars ('@ISA');
+@ISA = ("Class::PObject::Type::MD5");
+
 
 1;

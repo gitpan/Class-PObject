@@ -1,18 +1,18 @@
 package Class::PObject::Type::TEXT;
 
-# $Id: TEXT.pm,v 1.1 2003/08/27 20:36:55 sherzodr Exp $
+# $Id: TEXT.pm,v 1.1.2.3 2003/09/06 10:15:00 sherzodr Exp $
 
 use strict;
+#use diagnostics;
 use vars ('$VERSION', '@ISA');
 use Class::PObject::Type;
 @ISA = ("Class::PObject::Type");
 
-$VERSION = '0.01';
+$VERSION = '1.01';
 
 
 1;
 __END__
-# Below is stub documentation for your module. You'd better edit it!
 
 =head1 NAME
 
@@ -22,15 +22,8 @@ Class::PObject::Type::TEXT - Defines TEXT column type
 
 ISA L<Class::PObject::Type|Class::PObject::Type>
 
-=head1 AUTHOR
-
-Sherzod B. Ruzmetov, E<lt>sherzodr@cpan.orgE<gt>
-
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Sherzod B. Ruzmetov.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself. 
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
 
 =cut
