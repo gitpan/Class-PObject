@@ -1,6 +1,11 @@
 Revision history of Class::PObject
 =======================================
 
+2.10        Thursday, November 06, 2003
+
+            - FIX: 'freezethaw' serializer didn't work on empty objects
+
+
 2.09        Wednesday, November 05, 2003
 
             - FIX: Empty distribution
@@ -75,4 +80,4 @@ Revision history of Class::PObject
               AXn Class::Struct::Persistent
 
 =======================================
-$Id$
+Changes,v 1.16 2003/11/07 00:28:24 sherzodr Exp

@@ -1,6 +1,6 @@
 package Class::PObject::Test::Basic;
 
-# $Id$
+# Basic.pm,v 1.12 2003/11/07 00:28:24 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -11,11 +11,11 @@ use vars ('$VERSION', '@ISA');
 use overload;
 
 @ISA = ('Class::PObject::Test');
-$VERSION = '1.01';
+$VERSION = '1.02';
 
 
 BEGIN {
-    plan(tests => 172);
+    plan(tests => 173);
     use_ok("Class::PObject")
 }
 
@@ -91,6 +91,14 @@ sub run {
 
     my $article3 = new PO::Article();
     ok(ref $article3);
+
+
+    ################
+    #
+    # Testing if our object is a 'Class::PObject::Template'
+    #
+    ok($author1->isa('Class::PObject::Template') && $author2->isa('Class::PObject::Template') &&
+                                                    $article1->isa('Class::PObject::Template'));
 
     ################
     #

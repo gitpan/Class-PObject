@@ -1,6 +1,6 @@
 
 
-# $Id$
+# 11basic_mysql.t,v 1.6 2003/09/09 08:46:38 sherzodr Exp
 
 BEGIN {
     for ( "DBI", "DBD::mysql" ) {

@@ -1,6 +1,6 @@
 package Class::PObject::Type;
 
-# $Id$
+# Type.pm,v 1.5 2003/09/09 00:11:53 sherzodr Exp
 
 use strict;
 #use diagnostics;

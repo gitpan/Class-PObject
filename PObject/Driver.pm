@@ -1,6 +1,6 @@
 package Class::PObject::Driver;
 
-# $Id$
+# Driver.pm,v 1.19 2003/11/07 00:36:21 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -200,17 +200,18 @@ sub freeze {
     my ($self, $object_name, $props, $data) = @_;
 
     my $rv = undef;
-    $props->{serializer} ||= "storable";
     if ( $props->{serializer} eq "xml" ) {
-        require XML::Dumper;
-        my $d = XML::Dumper->new();
-        $rv = $d->pl2xml( $data );
+        require Data::DumpXML;
+        $rv = Data::DumpXML::dump_xml($data)
     } elsif ( $props->{serializer} eq "dumper" ) {
         require Data::Dumper;
         my $d = Data::Dumper->new([$data]);
         $d->Terse(1);
         $d->Indent(0);
         $rv =  $d->Dump();
+    } elsif ( $props->{serializer} eq 'freezethaw' ) {
+        require FreezeThaw;
+        $rv = FreezeThaw::freeze($data)
     } else {
         require Storable;
         $rv = Storable::freeze( $data )
@@ -224,14 +225,21 @@ sub freeze {
 sub thaw {
     my ($self, $object_name, $props, $datastr) = @_;
 
+    unless ( $datastr ) {
+        return undef
+    }
+
     my $rv = undef;
-    $props->{serializer} ||= "storable";
     if ( $props->{serializer} eq "xml" ) {
-        require XML::Dumper;
-        my $d = XML::Dumper->new();
-        $rv = $d->xml2pl( $datastr );
+        require Data::DumpXML::Parser;
+        my $p = Data::DumpXML::Parser->new();
+        warn "parsing '$datastr'";
+        $rv = $p->parse($datastr)
     } elsif ( $props->{serializer} eq "dumper" ) {
         $rv = eval $datastr;
+    } elsif ( $props->{serializer} eq 'freezethaw' ) {
+        require FreezeThaw;
+        $rv = (FreezeThaw::thaw($datastr))[0]
     } else {
         require Storable;
         $rv = Storable::thaw( $datastr );

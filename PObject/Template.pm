@@ -1,6 +1,6 @@
 package Class::PObject::Template;
 
-# $Id$
+# Template.pm,v 1.22 2003/11/07 00:28:24 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -9,11 +9,10 @@ use Carp;
 use vars ('$VERSION');
 use overload (
     '""'    => sub { $_[0]->id },
-    #bool    => sub { $_[0]->id  },
     fallback=> 1
 );
 
-$VERSION = '1.90';
+$VERSION = '1.91';
 
 sub new {
     my $class = shift;
@@ -107,7 +106,7 @@ sub get {
     }
 
 
-    # if we come this far, this value is being inquiried for the first
+    # if we come this far, this value is being inquired for the first
     # time. So we should load() it. 
     # To do this, we first need to identify its column type, to know how
     # to inflate it.
@@ -452,50 +451,66 @@ sub __driver {
 
 
 
-
-
-
-
 package VARCHAR;
-use Class::PObject::Type::VARCHAR;
 use vars ('@ISA');
+require Class::PObject::Type::VARCHAR;
 @ISA = ("Class::PObject::Type::VARCHAR");
 
 
-
-
 package CHAR;
-use Class::PObject::Type::CHAR;
 use vars ('@ISA');
+require Class::PObject::Type::CHAR;
 @ISA = ("Class::PObject::Type::CHAR");
 
 
-
-
 package INTEGER;
-use Class::PObject::Type::INTEGER;
 use vars ('@ISA');
+require Class::PObject::Type::INTEGER;
 @ISA = ("Class::PObject::Type::INTEGER");
 
 
-
-
 package TEXT;
-use Class::PObject::Type::TEXT;
 use vars ('@ISA');
+require Class::PObject::Type::TEXT;
 @ISA = ("Class::PObject::Type::TEXT");
 
 
 package ENCRYPT;
-use Class::PObject::Type::ENCRYPT;
 use vars ('@ISA');
+require Class::PObject::Type::ENCRYPT;
 @ISA = ("Class::PObject::Type::ENCRYPT");
 
 
 package MD5;
-use Class::PObject::Type::MD5;
 use vars ('@ISA');
+require Class::PObject::Type::MD5;
 @ISA = ("Class::PObject::Type::MD5");
 
 
 1;
+
+__END__;
+
+=pod
+
+=head1 NAME
+
+Class::PObject::Template - Class template for all the pobjects
+
+=head1 DESCRIPTION
+
+Class::PObject::Template defines the structure of all the classes created
+through C<pobject()> construct.
+
+All created pobjects are dynamically set to inherit from Class::PObject::Template.
+
+=head1 NOTES
+
+It would be nice if we had an option of setting an alternative template class
+for pobjects individually.
+
+=head1 AUTHOR and COPYRIGHT
+
+For author and copyright information refer to L<Class::PObject|Class::PObject/>.
+
+=cut

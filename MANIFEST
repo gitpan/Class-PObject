@@ -3,6 +3,7 @@ docs/Philosophy.pod
 INSTALL
 Makefile.PL
 MANIFEST			This list of files
+META.yml
 PObject.pm
 PObject/Driver.pm
 PObject/Driver/csv.pm
@@ -15,8 +16,6 @@ PObject/Driver/sqlite.pm
 PObject/Iterator.pm
 PObject/Template.pm
 PObject/Test.pm
-PObject/Test/.#HAS_A.pm.1.4
-PObject/Test/.#Types.pm.1.4
 PObject/Test/Basic.pm
 PObject/Test/HAS_A.pm
 PObject/Test/Types.pm
@@ -43,4 +42,3 @@ t/71hasa_csv.t
 t/72hasa_mysql.t
 t/73hasa_db_file.t
 t/74hasa_sqlite.t
-META.yml                                Module meta-data (added by MakeMaker)

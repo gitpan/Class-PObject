@@ -1,6 +1,6 @@
 package Class::PObject::Driver::DBI;
 
-# $Id$
+# DBI.pm,v 1.11 2003/09/09 08:46:36 sherzodr Exp
 
 use strict;
 #use diagnostics;

@@ -1,14 +1,14 @@
 package Class::PObject;
 
-# $Id$
+# PObject.pm,v 1.48 2003/11/07 00:36:21 sherzodr Exp
 
 use strict;
 #use diagnostics;
 use Log::Agent;
 use vars ('$VERSION', '$revision');
 
-$VERSION    = '2.09';
-($revision) = '$Revision$' =~ m/Revision:\s*(\S+)/;
+$VERSION  = '2.10';
+$revision = '1.48';
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
@@ -98,6 +98,9 @@ sub pobject {
     # if no driver was specified, default driver to be used is 'file'
     $props->{driver} ||= 'file';
 
+    # if no serializer set defaulting to 'storable'
+    $props->{serializer} ||= 'storable';
+
     # it's important that we cache all the properties passed to the pobject()
     # as a static data. This lets multiple instances of the pobject to access
     # this data whenever needed
@@ -108,23 +111,7 @@ sub pobject {
     # objects, let's also set the caller's @ISA array:
     push @{ "$class\::ISA" }, "Class::PObject::Template";
 
-    ####
-    # After dealing with ISA, I don't think the following would be
-    # necessary.
-
-    #*{ "$class\::new" }         = \&Class::PObject::Template::new;
-    #*{ "$class\::columns" }     = \&Class::PObject::Template::columns;
-    #*{ "$class\::load" }        = \&Class::PObject::Template::load;
-    #*{ "$class\::fetch" }       = \&Class::PObject::Template::fetch;
-    #*{ "$class\::save" }        = \&Class::PObject::Template::save;
-    #*{ "$class\::remove" }      = \&Class::PObject::Template::remove;
-    #*{ "$class\::remove_all" }  = \&Class::PObject::Template::remove_all;
-    #*{ "$class\::count" }       = \&Class::PObject::Template::count;
-    #*{ "$class\::errstr" }      = \&Class::PObject::Template::errstr;
-    #*{ "$class\::dump" }        = \&Class::PObject::Template::dump;
-    #*{ "$class\::__props" }     = \&Class::PObject::Template::__props;
-    #*{ "$class\::__driver" }    = \&Class::PObject::Template::__driver;
-
+    # creating accessor methods
     for my $colname ( @{ $props->{columns} } ) {
         if ( $class->UNIVERSAL::can($colname) ) {
             logcarp "method '%s' exists in the caller's package", $colname;
@@ -139,7 +126,6 @@ sub pobject {
             return $get->( $_[0], $colname )
         }
     }
-
 }
 
 logtrc 1, "%s loaded successfully", __PACKAGE__;
@@ -999,6 +985,6 @@ Copyright (c) 2003 Sherzod B. Ruzmetov. All rights reserved.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-$Date$
+2003/11/07 00:36:21
 
 =cut
