@@ -1,6 +1,11 @@
 Revision history of Class::PObject
 =======================================
 
+2.13	   Friday, December 12, 2003
+
+	    -FIX: if reserved names were used as column names, no operations on such 
+	    columns were possible if using mysql driver.
+
 2.12        Friday, November 07, 2003
 
             - FIX: more optimized datasource initialization
@@ -86,4 +91,4 @@ Revision history of Class::PObject
               AXn Class::Struct::Persistent
 
 =======================================
-Changes,v 1.17 2003/11/07 05:31:28 sherzodr Exp
+Changes,v 1.18 2003/12/12 05:17:37 sherzodr Exp

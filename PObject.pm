@@ -1,14 +1,14 @@
 package Class::PObject;
 
-# PObject.pm,v 1.51 2003/11/07 05:29:55 sherzodr Exp
+# PObject.pm,v 1.52 2003/12/12 05:17:37 sherzodr Exp
 
 use strict;
 #use diagnostics;
 use Log::Agent;
 use vars ('$VERSION', '$revision');
 
-$VERSION  = '2.12';
-$revision = '1.51';
+$VERSION  = '2.13';
+$revision = '1.52';
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
@@ -999,6 +999,6 @@ Copyright (c) 2003 Sherzod B. Ruzmetov. All rights reserved.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-2003/11/07 05:29:55
+2003/12/12 05:17:37
 
 =cut

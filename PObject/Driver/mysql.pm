@@ -1,6 +1,6 @@
 package Class::PObject::Driver::mysql;
 
-# mysql.pm,v 1.24 2003/11/07 04:51:04 sherzodr Exp
+# mysql.pm,v 1.25 2003/12/12 05:17:37 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -21,7 +21,7 @@ sub _prepare_insert {
     my ($sql, @fields, @bind_params);
     $sql = "REPLACE INTO $table_name SET ";
     while ( my ($k, $v) = each %$columns ) {
-        push @fields, "$k=?";
+        push @fields, "`$k`=?";
         push @bind_params, $v
     }
     $sql .= join(", ", @fields);
