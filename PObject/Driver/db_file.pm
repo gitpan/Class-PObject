@@ -1,6 +1,6 @@
 package Class::PObject::Driver::db_file;
 
-# $Id: db_file.pm,v 1.3 2003/09/09 00:11:54 sherzodr Exp $
+# $Id: db_file.pm,v 1.4 2003/09/09 08:46:36 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -26,6 +26,24 @@ sub dbh {
 
     return ($DB, \%dbh, $unlock)
 }
+
+
+
+
+sub drop_datasource {
+    my ($self, $object_name, $props) = @_;
+
+    my (undef, $dbh, $unlock) = $self->dbh($object_name, $props, 'w') or return;
+    my $filename = $self->_filename($object_name, $props);
+    unless ( unlink $filename ) {
+        $self->errstr( "couldn't unlink '$filename': $!" );
+        return undef
+    }
+    $unlock->();
+
+    return 1
+}
+
 
 
 

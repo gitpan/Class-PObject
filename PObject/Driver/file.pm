@@ -1,6 +1,6 @@
 package Class::PObject::Driver::file;
 
-# $Id: file.pm,v 1.17 2003/09/09 00:11:54 sherzodr Exp $
+# $Id: file.pm,v 1.18 2003/09/09 08:46:36 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -198,6 +198,29 @@ sub remove {
     }
     return 1
 }
+
+
+
+
+
+
+
+sub drop_datasource {
+    my ($self, $object_name, $props, $i) = @_;
+
+
+    my $dir = $self->_dir($object_name, $props);
+    logtrc 3, "removing '%s'", $dir;
+    require File::Path;
+    unless ( File::Path::rmtree($dir) ) {
+        $self->errstr( "couldn't unlink '%s': %s", $dir, $!);
+        return undef
+    }
+    return 1
+}
+
+
+
 
 
 

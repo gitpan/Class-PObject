@@ -1,6 +1,6 @@
 
 
-# $Id: Makefile.PL,v 1.15 2003/09/09 00:11:52 sherzodr Exp $
+# $Id: Makefile.PL,v 1.16 2003/09/09 08:49:23 sherzodr Exp $
 
 use strict;
 use ExtUtils::MakeMaker;
@@ -11,11 +11,13 @@ WriteMakefile(
     NAME	=> 'Class::PObject',
     VERSION_FROM=> 'PObject.pm',
     PREREQ_PM	=> {
-		'Data::Dumper'	=> 0,
 	    'Storable'      => 0,
 	    'IO::Dir'       => 0,
 	    'Test::More'    => 0,
-	    'Log::Agent'    => 0
+	    'Log::Agent'    => 0,
+        'File::Spec'    => 0,
+        'File::Path'    => 0,
+        'File::Basename'=> 0
     },
     ABSTRACT	=> "Simple framework for programming persistent objects",
     AUTHOR	=> "Sherzod B. Ruzmetov <sherzodr\@cpan.org>"

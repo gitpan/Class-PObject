@@ -1,6 +1,6 @@
 package Class::PObject::Test::Basic;
 
-# $Id: Basic.pm,v 1.10 2003/09/09 00:11:57 sherzodr Exp $
+# $Id: Basic.pm,v 1.11 2003/09/09 08:46:37 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -15,7 +15,7 @@ $VERSION = '1.01';
 
 
 BEGIN {
-    plan(tests => 170);
+    plan(tests => 172);
     use_ok("Class::PObject")
 }
 
@@ -27,7 +27,10 @@ sub run {
         columns     => ['id', 'name', 'url', 'email'],
         driver      => $self->{driver},
         datasource  => $self->{datasource},
-        serializer  => 'storable'
+        serializer  => 'storable',
+        tmap        => {
+            name => 'VARCHAR(40)'
+        }
     };
     ok(1);
 
@@ -177,6 +180,7 @@ sub run {
     $article1->author($author1_id);
 
     my $article1_id = undef;
+    print $article1->dump;
     ok($article1_id = $article1->save);
 
     ok($article1_id == $article1->id);
@@ -478,9 +482,10 @@ sub run {
     ok(PO::Author->count == 0);
 
     ok(PO::Article->remove_all);
-    ok(PO::Article->count == 0)
-    #ok(1);
-    #ok(1);
+    ok(PO::Article->count == 0);
+    
+    ok(PO::Article->drop_datasource);
+    ok(PO::Author->drop_datasource);
 }
 
 

@@ -1,14 +1,14 @@
 package Class::PObject;
 
-# $Id: PObject.pm,v 1.41 2003/09/09 00:11:52 sherzodr Exp $
+# $Id: PObject.pm,v 1.43 2003/09/09 08:46:33 sherzodr Exp $
 
 use strict;
 #use diagnostics;
 use Log::Agent;
 use vars ('$VERSION', '$revision');
 
-$VERSION    = '2.07';
-($revision) = '$Revision: 1.41 $' =~ m/Revision:\s*(\S+)/;
+$VERSION    = '2.07_01';
+($revision) = '$Revision: 1.43 $' =~ m/Revision:\s*(\S+)/;
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
@@ -871,6 +871,13 @@ and returns it. Although not recommended, you can use this driver object to acce
 driver's low-level functionality, as long as you know what you are doing. For available
 driver methods consult with specific driver manual, or contact the vendor.
 
+=item *
+
+C<drop_datasource()> - used when you want to drop storage device allocated for storing
+this particular object. Its meaning varies depending on the pobject driver being used.
+L<file|Class::PObject::Driver::file> driver may remove the entire directory of objects, 
+whereas L<mysql|Class::PObject::Driver::mysql> driver may drop the table.
+
 =back
 
 =head1 TODO
@@ -992,6 +999,6 @@ Copyright (c) 2003 Sherzod B. Ruzmetov. All rights reserved.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-$Date: 2003/09/09 00:11:52 $
+$Date: 2003/09/09 08:46:33 $
 
 =cut

@@ -1,12 +1,14 @@
 package Class::PObject::Driver::mysql;
 
-# $Id: mysql.pm,v 1.21 2003/09/09 00:11:54 sherzodr Exp $
+# $Id: mysql.pm,v 1.22 2003/09/09 08:46:36 sherzodr Exp $
 
 use strict;
 #use diagnostics;
 use Log::Agent;
 use vars ('@ISA', '$VERSION');
 require Class::PObject::Driver::DBI;
+
+use Data::Dumper;
 
 @ISA = ('Class::PObject::Driver::DBI');
 $VERSION = '2.00';
@@ -36,7 +38,7 @@ sub save {
     my ($self, $object_name, $props, $columns) = @_;
     
     my $dbh                 = $self->dbh($object_name, $props)        or return;
-    my $table               = $self->_tablename($object_name, $props) or return;
+    my $table               = $self->_tablename($object_name, $props, $dbh) or return;
     my ($sql, $bind_params) = $self->_prepare_insert($table, $columns);
 
     $self->_write_lock($dbh, $table) or return undef;
@@ -96,6 +98,78 @@ sub dbh {
     $self->stash('close', 1);
     return $dbh
 }
+
+
+
+sub _tablename {
+    my $self = shift;
+    my ($object_name, $props, $dbh) = @_;
+
+    unless ( defined $dbh ) {
+        $dbh = $self->dbh( $object_name, $props )
+    }
+    my $tablename   = $self->SUPER::_tablename(@_);
+    my $exists= 0;
+    # if table by this name already exists in the database,
+    # no reason to go any further.Return the name
+    my $stashed = sprintf "exists:%s-%s", $dbh->{Name}, $tablename;
+    if ( defined $self->stash($stashed) ) {
+        logtrc 3, "'$stashed' was present. Table exists";
+        return $tablename
+    }
+    
+    # if we come this far, we're still not sure if the database 
+    # exists or not. so we peek into the catalog.
+    my %tables  = map { s/\W//g; $_, 1 } $dbh->tables;
+    logtrc 3, "Retrieved %d tables from the database", scalar keys %tables;
+    if ( $tables{ $tablename } ) {
+        logtrc 3, "Table '%s' exists", $tablename;
+        return $tablename
+    }
+
+    my $sql = $self->_prepare_create_table($object_name, $tablename);
+    unless ( $dbh->do( $sql ) ) {
+        $self->errstr( $dbh->errstr );
+        return undef
+    }
+    $self->stash($stashed, 1);
+
+    return $tablename
+}
+
+
+
+sub _prepare_create_table {
+    my ($self, $object_name, $tablename) = @_;
+
+    my $props = $object_name->__props();
+    my @cols = ();
+    for my $column ( @{ $props->{columns} } ) {
+        my $type = $props->{tmap}->{$column};
+        if ( $type eq "MD5" ) {
+            $type = "CHAR(32)";
+        } elsif ( $type eq "ENCRYPT" ) {
+            $type = "CHAR(18)";
+        } else {
+            unless ( $type =~ m/^(CHAR|VARCHAR|INTEGER|TEXT|BLOB)(\([^\)]+\))?$/ ) {
+                logtrc 3, "%s is %s", $column, $type;
+                $type = "VARCHAR(255)"
+            }
+        }
+        if ( $column eq 'id' ) {
+            push @cols, "id INTEGER UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY";
+        } else {
+            push @cols, sprintf "%s %s NULL", $column, $type;
+        }
+    }
+    my $sql =  sprintf "\nCREATE TABLE %s (\n\t%s\n)", $tablename, join ",\n\t", @cols;
+    logtrc 4, $sql;
+    return $sql
+}
+
+
+
+
 
 1;
 __END__;
@@ -182,6 +256,12 @@ This implies that table's I<id> column should be of I<AUTO_INCREMENT> type. This
 that MySQL will take care of creating auto-incrementing unique object ids for you.
 
 =back
+
+=head1 NOTES
+
+If the table is detected to be missing in the database, it will attempt to create proper
+table for you. To have more control over how it creates this table,
+you can fill-in column types using I<tmap> argument.
 
 =head1 SEE ALSO
 

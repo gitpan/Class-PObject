@@ -1,6 +1,6 @@
 package Class::PObject::Test::Types;
 
-# $Id: Types.pm,v 1.3 2003/09/09 00:11:57 sherzodr Exp $
+# $Id: Types.pm,v 1.4 2003/09/09 08:46:37 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -8,7 +8,7 @@ use Test::More;
 use vars ('$VERSION', '@ISA');
 
 BEGIN {
-    plan(tests => 40);
+    plan(tests => 41);
     use_ok("Class::PObject");
     use_ok("Class::PObject::Test");
     use_ok("Class::PObject::Type");
@@ -47,7 +47,7 @@ sub run {
     $u->psswd("marley01");
     $u->activation_key("geek");
 
-    print $u->dump;
+    #print $u->dump;
     #exit(0);
 
     ################
@@ -137,7 +137,9 @@ sub run {
 
     ok(User->count == 1);
     ok(User->remove_all());
-    ok(User->count == 0)
+    ok(User->count == 0);
+
+    ok(User->drop_datasource);
 }
 
 

@@ -1,6 +1,6 @@
 package Class::PObject::Driver;
 
-# $Id: Driver.pm,v 1.16 2003/09/09 00:11:53 sherzodr Exp $
+# $Id: Driver.pm,v 1.17 2003/09/09 08:46:35 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -95,6 +95,12 @@ sub remove {
     croak "'$object_name' doesn't support 'remove()' method"
 }
 
+sub drop_datasource {
+    my $self = shift;
+    my ($object_name, $props) = @_;
+
+    croak "'$object_name' doesn't support 'drop_datasource()' method"
+}
 
 
 sub remove_all {
@@ -374,11 +380,17 @@ return hash-ref of column/value pairs.
 
 =item C<remove($self, $object_name, \%properties, $id)>
 
-Called when remove() method is called on pobject.
+Called when C<remove()> method is called on pobject.
 
 In addition to standard arguments, it will receive C<$id> - ID of the object that needs to be removed.
 
 Your task is to delete the record from the disk, and return any true value indicating success.
+
+=item C<drop_datasource($self, $object_name, \%properties)>
+
+Called when C<drop_datasource()> method is called on pobject. Its task is to remove 
+the storage device allocated for storing this particular object. On success should return
+I<1>.
 
 =back
 

@@ -1,6 +1,6 @@
 
 
-# $Id: 72hasa_mysql.t,v 1.2 2003/09/08 15:24:55 sherzodr Exp $
+# $Id: 72hasa_mysql.t,v 1.3 2003/09/09 08:46:38 sherzodr Exp $
 
 BEGIN {
     for ( "DBI", "DBD::mysql" ) {
@@ -16,28 +16,12 @@ BEGIN {
     }
 }
 
-my $dbh = DBI->connect("dbi:mysql:$ENV{MYSQL_DB}", $ENV{MYSQL_USER}, $ENV{MYSQL_PASSWORD}, {PrintError=>0});
-eval {
-    $dbh->do(qq|DROP TABLE IF EXISTS po_author|);
-    $dbh->do(qq|
-        CREATE TABLE po_author (
-            id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(200)
-        )|);
-    $dbh->do(qq|DROP TABLE IF EXISTS po_article|);
-    $dbh->do(qq|
-        CREATE TABLE po_article (
-            id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            title VARCHAR(200),
-            author INT UNSIGNED NOT NULL
-        )|);
-};
-
-if ( $@ ) {
-    print "1..0 #Skipped: $@\n";
-    exit(0)
-}
+my %dsn = (
+    DSN => "dbi:mysql:$ENV{MYSQL_DB}",
+    User => $ENV{MYSQL_USER},
+    Password => $ENV{MYSQL_PASSWORD}
+);
 
 use Class::PObject::Test::HAS_A;
-my $t = new Class::PObject::Test::HAS_A('mysql', {Handle=>$dbh});
+my $t = new Class::PObject::Test::HAS_A('mysql', \%dsn);
 $t->run();

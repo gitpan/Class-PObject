@@ -1,6 +1,6 @@
 package Class::PObject::Driver::DBI;
 
-# $Id: DBI.pm,v 1.10 2003/09/09 00:11:54 sherzodr Exp $
+# $Id: DBI.pm,v 1.11 2003/09/09 08:46:36 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -12,6 +12,41 @@ use vars ('$VERSION', '@ISA');
 @ISA = ('Class::PObject::Driver');
 
 $VERSION = '2.01';
+
+
+
+
+sub _prepare_create_table {
+    my ($self, $object_name, $tablename) = @_;
+
+    my $props = $object_name->__props();
+    my @cols = ();
+    for my $column ( @{ $props->{columns} } ) {
+        my $type = $props->{tmap}->{$column};
+        if ( $type eq "MD5" ) {
+            $type = "CHAR(32)";
+        } elsif ( $type eq "ENCRYPT" ) {
+            $type = "CHAR(18)";
+        } else {
+            unless ( $type =~ m/^(CHAR|VARCHAR|INTEGER|TEXT|BLOB)(\([^\)]+\))?$/ ) {
+                logtrc 3, "%s is %s", $column, $type;
+                $type = "VARCHAR(255)"
+            }
+        }
+        if ( $column eq 'id' ) {
+            push @cols, "id INTEGER PRIMARY KEY";
+        } else {
+            push @cols, sprintf "%s %s", $column, $type;
+        }
+    }
+    my $sql =  sprintf "\nCREATE TABLE %s (\n\t%s\n)", $tablename, join ",\n\t", @cols;
+    logtrc 4, $sql;
+    return $sql
+}
+
+
+
+
 
 
 sub _prepare_where_clause {
@@ -164,10 +199,10 @@ sub load_ids {
     my $dbh   = $self->dbh($object_name, $props)              or return;
     my $table = $self->_tablename($object_name, $props, $dbh) or return;
     my ($sql, $bind_params)   = $self->_prepare_select($table, $terms, $args, ['id']);
-    
-    
+
+
     my $sth   = $dbh->prepare( $sql );
-    
+
     unless( $sth->execute(@$bind_params) ) {
         $self->errstr($sth->errstr);
         return undef
@@ -230,6 +265,23 @@ sub remove_all {
     }
     return 1
 }
+
+
+sub drop_datasource {
+    my $self = shift;
+    my ($object_name, $props) = @_;
+
+    my $dbh = $self->dbh($object_name, $props) or return;
+    my $table= $self->_tablename($object_name, $props, $dbh) or return;
+    unless ( $dbh->do( "DROP TABLE $table" ) ) {
+        $self->errstr( $dbh->errstr );
+        return undef
+    }
+
+    return 1
+}
+
+
 
 
 
@@ -370,7 +422,7 @@ For details on C<save()> method, refer to L<Class::PObject::Driver|Class::PObjec
 =item *
 
 C<dbh($self, $pobject_name, \%properties)> - will be called by other base methods whenever
-a database handle is needed. It receives all the standard arguments 
+a database handle is needed. It receives all the standard arguments
 (see L<Class::PObject::Driver|Class::PObject::Driver>)
 
 If your project consists of several pobjects, which is very common, you may want to C<stash()>
@@ -444,6 +496,16 @@ C<_prepare_insert($self, $table_name, \%columns)> builds an I<INSERT> SQL statem
 =item *
 
 C<_prepare_delete($self, $table_name, \%terms)> builds a I<DELETE> SQL statement
+
+
+=item *
+
+C<_prepare_create_table($self, $object_name, $table_name)> builds a I<CREATE TABLE> SQL
+statement. This can be used from within pobject drivers for creating a table if it's
+detected to be missing.
+
+Unlike other C<_prepare_*> methods, this method returns only one value on success, C<$sql>,
+which is a string containing SQL statement.
 
 =item *
 

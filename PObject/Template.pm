@@ -1,6 +1,6 @@
 package Class::PObject::Template;
 
-# $Id: Template.pm,v 1.19 2003/09/09 00:11:53 sherzodr Exp $
+# $Id: Template.pm,v 1.21 2003/09/09 08:46:35 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -13,7 +13,7 @@ use overload (
     fallback=> 1
 );
 
-$VERSION = '1.03';
+$VERSION = '1.90';
 
 sub new {
     my $class = shift;
@@ -303,6 +303,27 @@ sub remove_all {
         $self->errstr($driver_obj->errstr());
         return undef
     }
+    return 1
+}
+
+
+
+
+sub drop_datasource {
+    my $self = shift;
+    my ($class) = ref ($self) || $self;
+
+    logtrc 2, "%s->drop_datasource", $self;
+
+    my $props   = $self->__props();
+    my $driver_obj = $self->__driver();
+
+    my $rv = $driver_obj->drop_datasource($class, $props);
+    unless ( defined $rv ) {
+        $self->errstr( $driver_obj->errstr );
+        return undef
+    }
+
     return 1
 }
 

@@ -1,6 +1,6 @@
 
 
-# $Id: 74hasa_sqlite.t,v 1.3 2003/09/09 00:12:02 sherzodr Exp $
+# $Id: 74hasa_sqlite.t,v 1.4 2003/09/09 08:46:38 sherzodr Exp $
 
 BEGIN {
     for ( "DBD::SQLite" ) {
@@ -14,25 +14,6 @@ BEGIN {
 
 require File::Spec;
 my $db = File::Spec->catfile('data', 'has_a', 'sqlite');
-
-if ( -e $db ) {
-    unlink($db)
-}
-my $dbh = DBI->connect("dbi:SQLite:dbname=$db", "", "");
-eval {
-    $dbh->do(qq|
-        CREATE TABLE po_author (
-            id INTEGER PRIMARY KEY,
-            name VARCHAR(200)
-        )|);
-    $dbh->do(qq|
-        CREATE TABLE po_article (
-            id INTEGER PRIMARY KEY,
-            title VARCHAR(200),
-            author INTGER
-        )|);
-};
-
 use Class::PObject::Test::HAS_A;
 my $t = new Class::PObject::Test::HAS_A('sqlite', $db);
 $t->run()

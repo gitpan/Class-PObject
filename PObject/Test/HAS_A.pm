@@ -1,15 +1,14 @@
 package Class::PObject::Test::HAS_A;
 
-# $Id: HAS_A.pm,v 1.3 2003/09/09 00:11:57 sherzodr Exp $
+# $Id: HAS_A.pm,v 1.4 2003/09/09 08:46:37 sherzodr Exp $
 
 use strict;
 #use diagnostics;
 use Test::More;
-use Data::Dumper;
 use vars ('$VERSION', '@ISA');
 
 BEGIN {
-    plan(tests => 35);
+    plan(tests => 37);
     use_ok("Class::PObject");
     use_ok("Class::PObject::Test")
 }
@@ -165,6 +164,9 @@ sub run {
     ok(PO::Article->count({author=>$author}) == 1);
     ok(PO::Article->remove_all);
     ok(PO::Article->count({author=>$author}) == 0);
+
+    ok(PO::Article->drop_datasource);
+    ok(PO::Author->drop_datasource);
 }
 
 1;

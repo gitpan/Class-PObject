@@ -1,6 +1,6 @@
 package Class::PObject::Driver::csv;
 
-# $Id: csv.pm,v 1.17 2003/09/09 00:11:54 sherzodr Exp $
+# $Id: csv.pm,v 1.18 2003/09/09 08:46:36 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -123,21 +123,14 @@ sub _tablename {
     my ($self, $object_name, $props, $dbh) = @_;
 
     my $table = $self->SUPER::_tablename($object_name, $props);
-
     my $dir   = $self->_dir($props) or return;
     if ( -e File::Spec->catfile($dir, $table) ) {
         return $table
     }
 
-    my @sets    = ();
-    for my $colname ( @{$props->{columns}} ) {
-        push @sets, "$colname BLOB";
-    }
-
-    my $sql_str = sprintf("CREATE TABLE %s (%s)", $table, join (", ", @sets));
-    my $sth = $dbh->prepare($sql_str);
-    unless($sth->execute()) {
-        $self->error($sth->{Statement} . ': ' . $sth->errstr);
+    my $sql = $self->_prepare_create_table($object_name, $table);
+    unless( $dbh->do( $sql ) ) {
+        $self->errstr( $dbh->errstr );
         return undef
     }
     return $table
@@ -225,6 +218,13 @@ for you.
 =back
 
 =head1 NOTES
+
+If the table is detected to be missing in the database, it will attempt to create proper
+table for you. To have more control over how it creates this table,
+you can fill-in column types using I<tmap> argument.
+
+
+=head2 SPEED
 
 I<csv> driver can get incredibly processor intensive once the number of records exceeds
 1,000. This can be fixed by providing indexing functionality to the driver, which it currently

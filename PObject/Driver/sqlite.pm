@@ -1,11 +1,13 @@
 package Class::PObject::Driver::sqlite;
 
-# $Id: sqlite.pm,v 1.7 2003/09/09 00:11:54 sherzodr Exp $
+# $Id: sqlite.pm,v 1.8 2003/09/09 08:46:36 sherzodr Exp $
 
 use strict;
 #use diagnostics;
 use Log::Agent;
 use vars ('@ISA', '$VERSION');
+require File::Path;
+require File::Basename;
 require Class::PObject::Driver::DBI;
 
 @ISA = ('Class::PObject::Driver::DBI');
@@ -14,7 +16,7 @@ $VERSION = '2.00';
 
 sub save {
     my ($self, $object_name, $props, $columns) = @_;
-
+    
     my $dbh                 = $self->dbh($object_name, $props)        or return;
     my $table               = $self->_tablename($object_name, $props, $dbh) or return;
     my ($sql, $bind_params);
@@ -50,9 +52,18 @@ sub dbh {
     my ($self, $object_name, $props) = @_;
 
     my $datasource = $props->{datasource};
-
     if ( defined $self->stash($datasource) ) {
         return $self->stash($datasource)
+    }
+    
+    my $basedir = File::Basename::dirname( $datasource );
+    logtrc 3, "datasource:%s, directory: %s", $datasource, $basedir;
+
+    unless ( -e $basedir ) {
+        unless ( File::Path::mkpath($basedir) ) {
+            $self->errstr( "couldn't create '$basedir': $!" );
+            return undef
+        }
     }
     require DBI;
     my $dbh = DBI->connect("dbi:SQLite:dbname=$datasource", "", "", {RaiseError=>0, PrintError=>0});
@@ -74,6 +85,20 @@ sub _tablename {
 
     my $table_name = lc $object_name;
     $table_name =~ s/\W+/_/g;
+    
+    {
+        local $^W = 0; # DBD::SQLite generates a warning
+        my %tables = map { $_, 1 } $dbh->tables;
+        if ( $tables{ $table_name } ) {
+            return $table_name
+        }
+    }
+
+    my $sql = $self->_prepare_create_table($object_name, $table_name);
+    unless ( $dbh->do( $sql ) ) {
+        $self->errstr( $dbh->errstr );
+        return undef
+    }
     return $table_name
 }
 
@@ -121,6 +146,15 @@ using L<DBD::SQLite|DBD::SQLite> I<datasource> attribute.
 C<save()> - stores/updates the object
 
 =back
+
+=head1 NOTES
+
+If the directory portion of the I<datasource> is missing, it will attempt to
+create necessary directory tree for you.
+
+If table to store the database is found to be missing, it will attempt to create
+the a proper table for you. To have more control over how it creates this table,
+you can fill-in column types using I<tmap> argument.
 
 =head1 SEE ALSO
 
