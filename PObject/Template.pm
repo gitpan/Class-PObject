@@ -1,10 +1,11 @@
 package Class::PObject::Template;
 
-# $Id$
+# $Id: Template.pm,v 1.22.2.2 2004/05/20 06:53:53 sherzodr Exp $
 
 use strict;
 #use diagnostics;
 use Log::Agent;
+use Data::Dumper;
 use Carp;
 use vars ('$VERSION');
 use overload (
@@ -68,11 +69,13 @@ sub set {
     unless ( @_ == 2  ) {
         logcroak "%s->set() usage error", ref($self)
     }
+
+#    print Dumper($self->{columns});
     #return $self->{columns}->{$colname} = ref($colvalue) ? $colvalue->id : $colvalue;
 
     my $props = $self->__props();
     my ($typeclass, $args) = $props->{tmap}->{$colname} =~ m/^([a-zA-Z0-9_:]+)(?:\(([^\)]+)\))?$/;
-    logtrc 3, "col: %s, type: %s, args: %s", $colname, $typeclass, $args;
+    logtrc 3, "col: %s, type: %s, args: %s", $colname, $typeclass||"undef", $args || "none";
     if ( ref $colvalue eq $typeclass ) {
         $self->{columns}->{$colname} = $colvalue;
     } else {
@@ -90,6 +93,7 @@ sub get {
     unless ( defined $colname ) {
         logcroak "%s->get() usage error", ref($self)
     }
+
     
     my $colvalue = $self->{columns}->{$colname};
 
@@ -113,7 +117,7 @@ sub get {
     my $props                = $self->__props();
     my ($typeclass, $args)    = $props->{tmap}->{ $colname } =~ m/^([a-zA-Z0-9_:]+)(?:\(([^\)]+)\))?$/;
     unless ( $typeclass ) {
-        logcroak "%s->set(): couldn't detect typeclass for this column (%s)", ref($self), $colname
+        logcroak "couldn't detect typeclass for this column (%s)", $colname
     }
 
     # we should cache the loaded object in the column
@@ -408,8 +412,17 @@ sub dump {
 sub __props {
     my $self = shift;
 
-    no strict 'refs';
-    return ${ (ref($self) || $self) . '::props' }
+    my @isa = (ref($self) || $self);
+    while ( my $pkg = shift @isa ) {
+        no strict 'refs';
+        if ( defined (my $props = ${ $pkg . "::props"}) ) {
+            ${ (ref($self) || $self) . "::props" } = $props;
+            return $props;
+        }
+        push @isa, @{ $pkg . "::ISA" };
+    }
+
+    logcroak "couldn't locate properties for this class";
 }
 
 

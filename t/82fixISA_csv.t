@@ -1,6 +1,6 @@
 
 
-# $Id: 62types_csv.t,v 1.3.4.1 2004/05/20 06:55:52 sherzodr Exp $
+# $Id: 82fixISA_csv.t,v 1.1.2.2 2004/05/20 06:53:53 sherzodr Exp $
 
 BEGIN {
     for ( "DBI", "DBD::CSV", "SQL::Statement" ) {
@@ -16,9 +16,11 @@ BEGIN {
     }
 }
 
-require File::Spec;
-require Class::PObject::Test::Types;
+use File::Spec;
+use Class::PObject::Test::ISA;
 
-my $t = new Class::PObject::Test::Types('csv', {Dir=>File::Spec->catfile('data', 'types', 'csv')});
+my $t = new Class::PObject::Test::ISA('csv', 
+                        { Dir => File::Spec->catfile('data', 'isa', 'csv'),
+                          Table => 'person' });
 $t->run();
 

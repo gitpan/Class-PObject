@@ -1,6 +1,6 @@
 
 
-# $Id: 11basic_mysql.t,v 1.6 2003/09/09 08:46:38 sherzodr Exp $
+# $Id: 84fixISA_mysql.t,v 1.1.2.1 2004/05/19 22:42:42 sherzodr Exp $
 
 BEGIN {
     for ( "DBI", "DBD::mysql" ) {
@@ -22,6 +22,6 @@ my %dsn = (
     Password => $ENV{MYSQL_PASSWORD}
 );
 
-use Class::PObject::Test::Basic;
-my $t = new Class::PObject::Test::Basic('mysql', \%dsn);
+use Class::PObject::Test::ISA;
+my $t = new Class::PObject::Test::ISA('mysql', \%dsn);
 $t->run();

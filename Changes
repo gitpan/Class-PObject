@@ -1,6 +1,12 @@
 Revision history of Class::PObject
 =======================================
 
+2.15_01     Thursday, May 20, 2004
+
+            -FIX: Inheritance issue. For more details refer to
+                  http://author.handalak.com/archives/052004/000387
+            -FIX: Minor bugs in t/*.t scripts
+
 2.14        Wednesday, May 19, 2004
 
             - NEW: member functions added. Details found in Class::PObject::Type.pm
@@ -95,4 +101,4 @@ Revision history of Class::PObject
               AXn Class::Struct::Persistent
 
 =======================================
-$Id$
+$Id: Changes,v 1.19.2.1 2004/05/20 06:59:13 sherzodr Exp $

@@ -1,6 +1,6 @@
 
 
-# $Id$
+# $Id: 64types_mysql.t,v 1.3 2003/09/09 08:46:38 sherzodr Exp $
 
 BEGIN {
     for ( "DBI", "DBD::mysql" ) {

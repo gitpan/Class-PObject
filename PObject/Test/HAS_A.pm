@@ -1,6 +1,6 @@
 package Class::PObject::Test::HAS_A;
 
-# $Id$
+# $Id: HAS_A.pm,v 1.5 2003/11/06 01:21:10 sherzodr Exp $
 
 use strict;
 #use diagnostics;

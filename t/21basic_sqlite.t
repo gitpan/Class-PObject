@@ -1,6 +1,6 @@
 
 
-# $Id$
+# $Id: 21basic_sqlite.t,v 1.6 2003/09/09 08:46:38 sherzodr Exp $
 
 BEGIN {
     for ( "DBD::SQLite" ) {

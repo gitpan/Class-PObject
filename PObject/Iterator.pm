@@ -1,6 +1,6 @@
 package Class::PObject::Iterator;
 
-# $Id$
+# $Id: Iterator.pm,v 1.7 2003/09/09 00:11:53 sherzodr Exp $
 
 use strict;
 #use diagnostics;

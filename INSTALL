@@ -33,5 +33,5 @@ skipped if either of DBI or DBD::CSV are missing.
 
 
 ========================================
-$Revision$
+$Revision: 1.5 $
 
