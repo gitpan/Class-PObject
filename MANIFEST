@@ -19,3 +19,4 @@ t/01basic_file.t
 t/06basic_csv.t
 t/11basic_mysql.t
 t/16basic_db_file.t
+META.yml                                Module meta-data (added by MakeMaker)

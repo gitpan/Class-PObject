@@ -1,6 +1,6 @@
 package Class::PObject::Driver::DBM;
 
-# $Id: DBM.pm,v 1.2 2003/08/23 14:31:29 sherzodr Exp $
+# $Id: DBM.pm,v 1.3 2003/08/24 20:51:25 sherzodr Exp $
 
 use strict;
 use Carp;
@@ -17,16 +17,13 @@ $VERSION = '1.00';
 sub save {
     my ($self, $object_name, $properties, $columns) = @_;
     
-    $self->_write_lock($object_name, $properties);
-    my $dbh = $self->dbh($object_name, $properties) or return undef;
-
+    my (undef, $dbh, $unlock) = $self->dbh($object_name, $properties, 'w') or return undef;
     unless ( $columns->{id} ) {
         my $lastid = $dbh->{_lastid} || 0;
         $columns->{id} = ++$dbh->{_lastid}
     }
-
     $dbh->{ "!ID:" . $columns->{id} } = $self->freeze($columns);
-    $self->_unlock();
+    $unlock->();
     return $columns->{id}
 }
 
@@ -35,29 +32,23 @@ sub save {
 sub load {
     my ($self, $object_name, $properties, $terms, $args) = @_;
 
-    $self->_read_lock($object_name, $properties);
-    my $dbh = $self->dbh($object_name, $properties) or return undef;
-
+    my (undef, $dbh, $unlock) = $self->dbh($object_name, $properties) or return undef;
     if ( $terms && (ref($terms) ne 'HASH') && ($terms =~ /^\d+$/) ) {
         return [$self->thaw( $dbh->{"!ID:" . $terms} )]
     }
-
     my @data_set = ();
     my $n = 0;
     while ( my ($k, $v) = each %$dbh ) {
         if ( $args && $args->{limit} && !$args->{offset} && !$args->{sort} ) {
-            if ( $n++ == $args->{limit} ) {
-                last
-            }
+            $n++ == $args->{limit} and last
         }
         $k =~ /!ID:/ or next;
         my $data = $self->thaw( $v );
-
         if ( $self->_matches_terms($data, $terms) ) {
             push @data_set, $data
         }
     }
-    $self->_unlock();
+    $unlock->();
     return $self->_filter_by_args(\@data_set, $args)
 }
 
@@ -71,80 +62,51 @@ sub load {
 sub remove {
     my ($self, $object_name, $properties, $id) = @_;
 
-    $self->_write_lock($object_name, $properties);
-    my $dbh = $self->dbh($object_name, $properties) or return undef;
+    
+    my (undef, $dbh, $unlock) = $self->dbh($object_name, $properties, 'w') or return undef;
     delete $dbh->{ "!ID:" . $id };
-    $self->_unlock();
+    $unlock->();
     return 1
 }
 
 
 
 
-sub _dir {
-    my ($self, $props) = @_;
-
-    my $dir = $props->{datasource} || File::Spec->tmpdir();
-    unless ( -e $dir ) {
-        require File::Path;
-        File::Path::mkpath($dir) or die $!
-    }
-    return $dir
-}
-
-
-
-sub _filename {
-    my ($self, $object_name, $props) = @_;
-
-
-    my $dir = $self->_dir($props);
-    my $filename = lc $object_name;
-    $filename    =~ s/\W+/_/g;
-
-    return File::Spec->catfile($dir, $filename . '.dbm')
-}
 
 
 
 
 
 
-
-sub _read_lock {
-    my ($self, $object_name, $props) = @_;
-
-    my $filename = $self->_filename($object_name, $props) . '.lck';
-    sysopen(LCK, $filename, O_RDONLY|O_CREAT, 0600) 
-        or die "couldn't open/create $filename: $!";
-    flock(LCK, LOCK_SH) or die "couldn't lock $filename: $!";
-    $lock = \*LCK
-}
-
-
-
-sub _write_lock {
-    my ($self, $object_name, $props) = @_;
-
-    my $filename = $self->_filename($object_name, $props) . '.lck';
-    sysopen(LCK, $filename, O_RDWR|O_CREAT, 0600)
-        or die "couldn't open/create $filename: $!";
-    flock(LCK, LOCK_EX) or die "couldn't lock $filename: $!";
-    $lock = \*LCK
-}
-
-
-
-sub _unlock {
+sub _lock {
     my $self = shift;
+    my ($file, $type) = @_;
+    
+    $file    .= '.lck';
+    my $lock_flags = $type eq 'w' ? LOCK_EX : LOCK_SH;
 
-    unless ( defined $lock ) {
-        croak "Nothing to unlock"
+    require Symbol;
+    my $lock_h = Symbol::gensym();
+    unless ( sysopen($lock_h, $file, O_RDWR|O_CREAT, 0666) ) {
+        $self->errstr("couldn't create/open '$file': $!");
+        return undef
     }
-    close($lock) or die "couldn't unlock: $!";
-
-    return 1
+    unless (flock($lock_h, $lock_flags)) {
+        $self->errstr("couldn't lock '$file': $!");
+        close($lock_h);
+        return undef
+    }
+    return sub { 
+        close($lock_h);
+        unlink $file
+    }
 }
+
+
+
+
+
+
 
 
 
@@ -192,9 +154,14 @@ disk access.
 
 =item *
 
-C<dbh($self, $pobject_name, \%properties)> - called whenever base methods
+C<dbh($self, $pobject_name, \%properties, $lock_type)> - called whenever base methods
 need database tied hash. DBM drivers should provide this method, which should
-return a reference to a tied hash.
+return an array of elements, namely C<$DB> - an DBM object, usually returned from
+C<tie()> or C<tied()> functions; C<$dbh> - a hash tied to database; C<$unlock> - 
+an action required for unlocking the database. C<$unlock> should be a reference 
+to a subroutine, which when called should release the lock.
+
+Currently base methods ignore C<$DB>, but it may change in the future.
 
 =item *
 
@@ -207,17 +174,12 @@ It then returns a file name derived out of C<$pobject_name> inside this director
 
 =item *
 
-C<_read_lock($self, $pobject_name, \%properties)> - acquires a shared lock for the
-object file.
+C<_lock($file, $filename, $lock_type)> - acquires either shared or exclusive lock depending
+on the C<$lock_type>, which can be either of I<w> or I<r>.
 
-=item *
-
-C<_write_lock($self, $pobject_name, \%properties)> - acquires an exclusive lock for
-the object file.
-
-=item *
-
-C<_unlock()> - unlocks existing lock
+Returns a reference to an action (subroutine), which perform unlocking for this particular
+lock. On failure returns undef. C<_lock()> is usually called from within C<dbh()>, and return
+value is returned together with database hadnles.
 
 =back
 

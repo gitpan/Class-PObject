@@ -1,6 +1,6 @@
 
 
-# $Id: 11basic_mysql.t,v 1.4 2003/08/23 13:15:13 sherzodr Exp $
+# $Id: 11basic_mysql.t,v 1.5 2003/08/23 17:33:24 sherzodr Exp $
 
 BEGIN {
     for ( "DBI", "DBD::mysql" ) {
@@ -20,6 +20,7 @@ BEGIN {
 
 my $dbh = DBI->connect("dbi:mysql:$ENV{MYSQL_DB}", $ENV{MYSQL_USER}, $ENV{MYSQL_PASSWORD}, {PrintError=>0});
 eval {
+    $dbh->do(qq|DROP TABLE IF EXISTS po_author|);
     $dbh->do(qq|
         CREATE TABLE po_author (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -27,11 +28,13 @@ eval {
             email VARCHAR(200),
             url VARCHAR(200)
         )|);
+    $dbh->do(qq|DROP TABLE IF EXISTS po_article|);
     $dbh->do(qq|
         CREATE TABLE po_article (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(200),
             author INT UNSIGNED NOT NULL,
+            rating INT UNSIGNED NOT NULL,
             content TEXT 
         )|);
 };

@@ -10,17 +10,47 @@ use Class::PObject::Driver::DBM;
 $VERSION = '1.00';
 
 sub dbh {
-    my ($self, $object_name, $props) = @_;
+    my ($self, $object_name, $props, $lock_type) = @_;
 
     my $filename = $self->_filename($object_name, $props);
-    my %dbh = ();
-    unless ( tie %dbh, "DB_File", $filename, O_RDWR|O_CREAT, 0600 ) {
+    my ($DB, %dbh, $unlock);
+    my $unlock = $self->_lock($filename, $lock_type||'r') or return undef;
+    unless ( $DB = tie %dbh, "DB_File", $filename, O_RDWR|O_CREAT, 0600 ) {
         $self->errstr("couldn't connect to '$filename': $!");
         return undef
     }
 
-    return \%dbh
+    return ($DB, \%dbh, $unlock)
 }
+
+
+
+
+sub _filename {
+    my ($self, $object_name, $props) = @_;
+
+
+    my $dir = $self->_dir($props);
+    my $filename = lc $object_name;
+    $filename    =~ s/\W+/_/g;
+
+    return File::Spec->catfile($dir, $filename . '.dbm')
+}
+
+
+
+sub _dir {
+    my ($self, $props) = @_;
+
+    my $dir = $props->{datasource} || File::Spec->tmpdir();
+    unless ( -e $dir ) {
+        require File::Path;
+        File::Path::mkpath($dir) or die $!
+    }
+    return $dir
+}
+
+
 
 1;
 __END__

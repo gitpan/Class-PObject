@@ -1,9 +1,9 @@
 
 
-# $Id: 16basic_db_file.t,v 1.2 2003/08/23 14:31:32 sherzodr Exp $
+# $Id: 16basic_db_file.t,v 1.3 2003/08/25 12:59:12 sherzodr Exp $
 
 BEGIN {
-    for ( "DB_File" ) {
+    for ( "DB_File", "Storable" ) {
         eval "require $_";
         if ( $@ ) {
             print "1..0 #Skipped: $_ is not available\n";

@@ -1,13 +1,13 @@
 package Class::PObject;
 
-# $Id: PObject.pm,v 1.29 2003/08/23 14:31:24 sherzodr Exp $
+# $Id: PObject.pm,v 1.30.2.1 2003/08/26 09:25:31 sherzodr Exp $
 
 use strict;
 use Log::Agent;
 use vars qw($VERSION $revision);
 
-$VERSION    = '2.00_03';
-($revision) = '$Revision: 1.29 $' =~ m/Revision:\s*(\S+)/;
+$VERSION    = '2.02';
+($revision) = '$Revision: 1.30.2.1 $' =~ m/Revision:\s*(\S+)/;
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0, -caller=>[-display=>'($sub/$line)']);
