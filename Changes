@@ -1,5 +1,8 @@
 Revision history for Class::PObject
 =======================================
+2.04        Wednesday, August 27, 2003
+
+            - Iterator class was missing in the distribution
 
 2.03        Tuesday, August 26, 2003
             
@@ -44,4 +47,4 @@ Revision history for Class::PObject
               AXn Class::Struct::Persistent
 
 =======================================
-$Id: Changes,v 1.7 2003/08/27 00:23:17 sherzodr Exp $
+$Id: Changes,v 1.8 2003/08/27 07:32:03 sherzodr Exp $

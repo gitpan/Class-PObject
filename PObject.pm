@@ -1,16 +1,16 @@
 package Class::PObject;
 
-# $Id: PObject.pm,v 1.32 2003/08/27 00:23:17 sherzodr Exp $
+# $Id: PObject.pm,v 1.33 2003/08/27 07:32:03 sherzodr Exp $
 
 use strict;
 use Log::Agent;
 use vars qw($VERSION $revision);
 
-$VERSION    = '2.03';
-($revision) = '$Revision: 1.32 $' =~ m/Revision:\s*(\S+)/;
+$VERSION    = '2.04';
+($revision) = '$Revision: 1.33 $' =~ m/Revision:\s*(\S+)/;
 
 # configuring Log::Agent
-logconfig(-level=>$ENV{POBJECT_DEBUG} || 0, -caller=>[-display=>'($sub/$line)']);
+logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
 
 # Preloaded methods go here.
 
@@ -75,11 +75,11 @@ sub pobject {
         $has_id = ($_ eq 'id') and last
     }
     unless ( $has_id ) {
-        logcroak "'id' column is required! Read 'TODO' section of the manual for more details"
+        logcroak "'id' column is required!"
     }
 
     # certain method names are reserved. Making sure they won't get overridden
-    my @reserved_methods = qw(load new save pobject_init DESTROY);
+    my @reserved_methods = qw(new load fetch save pobject_init DESTROY);
     for my $method ( @reserved_methods ) {
         for my $column ( @{$props->{columns}} ) {
             if ( $method eq $column ) {
@@ -783,6 +783,6 @@ Copyright 2003 by Sherzod B. Ruzmetov.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-$Date: 2003/08/27 00:23:17 $
+$Date: 2003/08/27 07:32:03 $
 
 =cut
