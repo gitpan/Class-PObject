@@ -1,0 +1,30 @@
+Class::PObject INSTALLATION AND TESTSING
+
+ * Class::PObject follows standard Perl Module Installation scheme:
+
+	% perl Makefile.PL
+	% make
+	% make test
+	% make install
+
+ * RUNNING MYSQL TESTS
+
+Following environmental variables are required for running mysql tests:
+
+	MYSQL_DB - name of the mysql database tests should be performed on (required)
+	MYSQL_USER - username to connect to database. If left empty, will use your username
+	MYSQL_PASSWOR - password for the user to connect to database
+
+
+ * RUNNING CSV TESTS
+
+No special procedures requried for running CSV tests, however, the test will be 
+skipped if either of DBI or DBD::CSV are missing.
+
+
+
+
+
+
+$Revision: 1.2 $
+

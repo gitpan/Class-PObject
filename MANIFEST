@@ -1,0 +1,16 @@
+Changes
+INSTALL
+MANIFEST			This list of files
+Makefile.PL
+PObject.pm
+PObject/Driver.pm
+PObject/Driver/csv.pm
+PObject/Driver/file.pm
+PObject/Driver/mysql.pm
+README
+t/01file.t
+t/02csv.t
+t/03mysql.t
+t/04file_mult.t
+t/05cvs_mult.t
+t/06mysql_mult.t

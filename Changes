@@ -1,0 +1,11 @@
+Revision history for Perl extension Class::PObject
+
+1.3		Sunday, June 08, 2003
+	-	first public release, alpha
+
+0.01  Tuesday, June 03 2003
+	- original version; created by h2xs 1.21 with options
+		-AXn Class::Struct::Persistent
+
+
+$Id: Changes,v 1.2 2003/06/08 23:22:14 sherzodr Exp $
