@@ -1,6 +1,6 @@
 package Class::PObject::Test::Basic;
 
-# Basic.pm,v 1.12 2003/11/07 00:28:24 sherzodr Exp
+# $Id$
 
 use strict;
 #use diagnostics;

@@ -1,6 +1,6 @@
 package Class::PObject::Driver::db_file;
 
-# db_file.pm,v 1.5 2003/11/07 04:43:14 sherzodr Exp
+# $Id$
 
 use strict;
 #use diagnostics;

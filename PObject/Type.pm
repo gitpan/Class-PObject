@@ -1,6 +1,6 @@
 package Class::PObject::Type;
 
-# Type.pm,v 1.5 2003/09/09 00:11:53 sherzodr Exp
+# $Id$
 
 use strict;
 #use diagnostics;
@@ -10,6 +10,8 @@ use overload (
     bool  => sub { shift->{id} ? 1 : 0 },
     fallback => 1
 );
+use Carp;
+
 
 $VERSION = '1.03';
 
@@ -71,6 +73,67 @@ sub dump {
     my $d = Data::Dumper->new([$self], [ref $self]);
     $d->Indent(2);
     return $d->Dump()
+}
+
+
+
+
+# member functions for each  column type
+sub substr {
+	my $self = shift;
+	unless ( @_ ) {
+		croak "$self->substr(): usage error";
+	}
+	return unless defined $self->id();
+	return CORE::substr($self->id, $_[0], $_[1])
+}
+
+
+
+sub ucfirst {
+    my $self = shift;
+
+    if ( @_ ) {
+        croak "$self->ucfirst(): usage error";
+    }
+    return unless defined $self->id();
+    return CORE::ucfirst( $self->id );
+}
+
+
+
+sub lcfirst {
+    my $self = shift;
+
+    if ( @_ ) {
+        croak "$self->lcfirst(): usage error";
+    }
+    return unless defined $self->id();
+    return CORE::lcfirst( $self->id );
+}
+
+
+
+sub lc {
+    my $self = shift;
+
+    if ( @_ ) {
+        croak "$self->lc(): usage error";
+    }
+    return unless defined $self->id();
+    return CORE::lc( $self->id );
+}
+
+
+
+sub uc {
+    my $self = shift;
+
+    if ( @_ ) {
+        croak "$self->uc(): usage error";
+    }
+    return unless defined $self->id();
+    return CORE::uc( $self->id );
 }
 
 
@@ -146,7 +209,7 @@ which defaults to I<INTEGER>.
 
 =head2 TYPE CLASS
 
-We said each I<type> was a class. This classes have the same interface as any other
+We said each I<type> was a class. These classes have the same interface as any other
 class generated through C<pobject> construct. Instead of being generated out of
 Class::PObject::Template, however, these particular classes inherit from 
 Class::PObject::Type.
@@ -197,7 +260,49 @@ thanks to operator overloading.
 =head1 HAS-A RELATIONSHIPS
 
 Because type classes provide the same interface as any other pobject class,
-we could define object relationships as easily as defining column types.
+we could define object relationships as easily as defining column types. Refer to Class::PObject's 
+L<online manual|Class::PObject> for further details.
+
+=head1 MEMBER FUNCTIONS
+
+Since each column is an object, each column can have its own methods, which we'd like to call I<member functions>.
+As of this release following C<member functions> are supported by B<all> column types:
+
+=over 4
+
+=item substr($offset, $length)
+
+Returns a substring off the column's string value. Range of this sub-string is defined by C<$offset> and C<$length>.
+Example:
+
+    pobject Peprson => {
+        columns => ['id', 'name']
+    };
+
+    $me = Person->new();
+    $me->name("Sherzod Ruzmetov");
+
+    $substr = $me->name()->substr(0, 5);
+
+In the above example C<$substr> will hold first 6 letters of whatever C<< $me->name() >> could've returned.
+
+=item lc()
+
+Identical to Perl's built-in L<lc()|perlfunc/"lc"> function
+
+=item uc()
+
+Identical to Perl's buil-in L<uc()|perlfunc/"uc"> function
+
+=item ucfirst()
+
+Identical to Perl's built-in L<ucfirst()|perlfunc/"ucfirst"> function
+
+=item lcfirst()
+
+Identical to Perl's built-in L<lcfirst()|perlfunc/"lcfirst"> function
+
+=back
 
 =head1 SEE ALSO
 
@@ -209,6 +314,6 @@ L<Class::PObject::Type::SHA1>
 
 =head1 COPYRIGHT AND LICENSE
 
-For author and copyright information refer to Class::PObject's L<online manual|Class::PObject>.
+For author and copyright information refer to Class::PObject's L<online manual|Class::PObject/"COPYRIGHT AND LICENSE">.
 
 =cut

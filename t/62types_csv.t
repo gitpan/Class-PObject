@@ -1,6 +1,6 @@
 
 
-# 62types_csv.t,v 1.3 2003/09/09 00:12:02 sherzodr Exp
+# $Id$
 
 use strict;
 use File::Spec;

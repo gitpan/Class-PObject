@@ -1,14 +1,14 @@
 package Class::PObject;
 
-# PObject.pm,v 1.52 2003/12/12 05:17:37 sherzodr Exp
+# $Id$
 
 use strict;
 #use diagnostics;
 use Log::Agent;
 use vars ('$VERSION', '$revision');
 
-$VERSION  = '2.13';
-$revision = '1.52';
+$VERSION  = '2.14';
+$revision = '$Revision$';
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
@@ -418,7 +418,7 @@ if result set consists of a single object.
 =head2 LOADING OBJECTS SELECTIVELY
 
 Sometimes you just want to load objects matching a specific criteria, say, you want all the people
-whose name are I<John>. You can achieve this by passing a hashref as the first argument to C<load()>:
+whose name are I<John>. You can achieve this by passing a hash ref as the first argument to C<load()>:
 
     @johns = Person->load({name=>"John"});
 
@@ -427,7 +427,7 @@ Sets of key/value pairs passed to C<load()> as the first argument are called I<t
 You can also apply post-result filtering to your list, such as sorting by a specific column
 in a specific order, and limit the list to I<n> number of objects and start the listing at
 object I<n> of the result set. All these attributes can be passed as the second argument to
-C<load()> in the form of a hashref and are called I<arguments> :
+C<load()> in the form of a has href and are called I<arguments> :
 
     @people = Person->load(undef, {sort=>'name', direction=>'desc', limit=>100});
 
@@ -658,15 +658,39 @@ allows it to be used in similar way as I<ENCRYPT> column type.
 =back
 
 Up to this point you noticed that objects' accessor methods have been returning
-strings, right? Wrong! They have been returning objects of their appropriate types.
-But you didn't notice them and kept treating them as strings because of smart
-operator overloading feature of those objects.
+strings, right? Wrong! They have been returning objects of their appropriate types (CHAR, 
+VARCHAR, ENCRYPT and etc.). But you didn't notice them and kept treating them as strings 
+because of smart operator overloading feature of those objects.
 
 This means, if at any time in your program you want to discover the type of a specific
 column, you could simply use Perl's built-in I<ref()> function:
 
     print ref( $user->psswd), "\n"; # <-- prints ENCRYPT
     print ref( $user->name ), "\n"; # <-- print VARCHAR
+
+=head2 COLUMN MEMBER FUNCTIONS
+
+Objects returned by calling accessor methods support several built-in methods, also
+known as I<member functions>. These member functions are usually meant to manipulate
+the value of the column before returning to the caller, but are not meant to modify 
+the actual value of the column. So you can fearlessly call any of the member functions
+without modifying their values in the object.
+
+Although L<Typemap Specifications|Class::PObject::Types> and respective type classes cover
+all the necessary details about each of these member functions, in this section we'll just cover
+C<uc> as an example, which returns the upper-cased version of the string:
+
+    $user = User->load( $user_id );
+    printf( "Hello %s!\n", $user->name()->uc() );
+
+Assuming value of C<< $user->name() >> was I<Sherzod>, C<< $user->name()->uc() >> returns
+I<SHERZOD> by uppercasing all the characters of the word.
+
+After C<< $user->name()->uc() >> is called, C<< $user->name() >> keeps returning I<Sherzod>. 
+As we mentioned early initial value of the column would not be altered.
+
+See L<Typemap Specifications|Class::PObject::Types> and respective type classes for
+the list of all the available member functions available for all and specific column types.
 
 =head2 DEFINING METHODS OTHER THAN ACCESSORS
 
@@ -849,7 +873,7 @@ This error message is also available through C<$CLASS::errstr> global variable:
 =item *
 
 C<__props()> - returns I<class properties>. Class properties are usually whatever was
-passed to C<pobject()> as a hashref, either as the first argument or the second.
+passed to C<pobject()> as a has href, either as the first argument or the second.
 This information is usually helpful for driver authors, and for those who want to access
 certain information about this class.
 
@@ -999,6 +1023,6 @@ Copyright (c) 2003 Sherzod B. Ruzmetov. All rights reserved.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-2003/12/12 05:17:37
+$Date$
 
 =cut

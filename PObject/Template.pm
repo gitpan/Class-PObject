@@ -1,6 +1,6 @@
 package Class::PObject::Template;
 
-# Template.pm,v 1.22 2003/11/07 00:28:24 sherzodr Exp
+# $Id$
 
 use strict;
 #use diagnostics;

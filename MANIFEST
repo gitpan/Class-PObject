@@ -16,6 +16,7 @@ PObject/Driver/sqlite.pm
 PObject/Iterator.pm
 PObject/Template.pm
 PObject/Test.pm
+PObject/Test/.#Types.pm.1.5
 PObject/Test/Basic.pm
 PObject/Test/HAS_A.pm
 PObject/Test/Types.pm

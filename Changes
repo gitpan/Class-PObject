@@ -1,6 +1,10 @@
 Revision history of Class::PObject
 =======================================
 
+2.14        Wednesday, May 19, 2004
+
+            - NEW: member functions added. Details found in Class::PObject::Type.pm
+
 2.13	   Friday, December 12, 2003
 
 	    -FIX: if reserved names were used as column names, no operations on such 
@@ -91,4 +95,4 @@ Revision history of Class::PObject
               AXn Class::Struct::Persistent
 
 =======================================
-Changes,v 1.18 2003/12/12 05:17:37 sherzodr Exp
+$Id$

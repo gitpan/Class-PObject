@@ -8,7 +8,7 @@ use Test::More;
 use vars ('$VERSION', '@ISA');
 
 BEGIN {
-    plan(tests => 46);
+    plan(tests => 41);
     use_ok("Class::PObject");
     use_ok("Class::PObject::Test");
     use_ok("Class::PObject::Type");
@@ -123,26 +123,6 @@ sub run {
     ok(ref($u->psswd)    eq 'ENCRYPT');
     ok(ref($u->activation_key), 'MD5');
     ok($u->save == $id, $u->errstr);
-
-
-	################
-	#
-	# Checking col. member functions (inside Type.pm)
-	#
-	my $substr = $u->name()->substr(0, 6);
-	ok($substr eq "Sherzo", $substr);
-
-    my $lcfirst = $u->name()->lcfirst();
-    ok($lcfirst eq 'sherzod Ruzmetov (e)');
-
-    my $ucfirst = $u->name()->ucfirst();
-    ok($ucfirst eq 'Sherzod Ruzmetov (e)');
-
-    my $lc = $u->name()->lc();
-    ok($lc eq 'sherzod ruzmetov (e)');
-
-    my $uc = $u->name()->uc();
-    ok($uc eq 'SHERZOD RUZMETOV (E)');
 
 
     ################

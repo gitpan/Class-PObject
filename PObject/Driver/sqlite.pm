@@ -1,6 +1,6 @@
 package Class::PObject::Driver::sqlite;
 
-# sqlite.pm,v 1.10 2003/11/07 04:51:04 sherzodr Exp
+# $Id$
 
 use strict;
 #use diagnostics;

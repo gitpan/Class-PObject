@@ -1,6 +1,6 @@
 
 
-# 01basic_file.t,v 1.9 2003/09/09 00:12:02 sherzodr Exp
+# $Id$
 
 BEGIN {
     for ( "Storable" ) {

@@ -1,6 +1,6 @@
 package Class::PObject::Type::VARCHAR;
 
-# VARCHAR.pm,v 1.3 2003/09/09 00:11:59 sherzodr Exp
+# $Id$
 
 use strict;
 #use diagnostics;
