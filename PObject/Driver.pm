@@ -1,6 +1,6 @@
 package Class::PObject::Driver;
 
-# $Id: Driver.pm,v 1.19 2003/11/07 00:36:21 sherzodr Exp $
+# Driver.pm,v 1.19 2003/11/07 00:36:21 sherzodr Exp
 
 use strict;
 #use diagnostics;

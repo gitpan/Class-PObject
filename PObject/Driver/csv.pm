@@ -1,6 +1,6 @@
 package Class::PObject::Driver::csv;
 
-# $Id: csv.pm,v 1.20 2003/11/07 04:51:04 sherzodr Exp $
+# csv.pm,v 1.20 2003/11/07 04:51:04 sherzodr Exp
 
 use strict;
 #use diagnostics;

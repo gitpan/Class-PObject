@@ -1,6 +1,6 @@
 
 
-# $Id: 73hasa_db_file.t,v 1.2 2003/09/08 15:24:55 sherzodr Exp $
+# 73hasa_db_file.t,v 1.2 2003/09/08 15:24:55 sherzodr Exp
 
 BEGIN {
     for ( "DB_File" ) {

@@ -1,6 +1,6 @@
 
 
-# $Id: 62types_csv.t,v 1.3.4.1 2004/05/20 06:55:52 sherzodr Exp $
+# 62types_csv.t,v 1.4 2004/05/20 06:41:53 sherzodr Exp
 
 BEGIN {
     for ( "DBI", "DBD::CSV", "SQL::Statement" ) {

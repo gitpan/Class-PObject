@@ -1,6 +1,6 @@
 package Class::PObject::Test::Types;
 
-# $Id: Types.pm,v 1.6 2004/05/19 06:07:53 sherzodr Exp $
+# Types.pm,v 1.6 2004/05/19 06:07:53 sherzodr Exp
 
 use strict;
 #use diagnostics;

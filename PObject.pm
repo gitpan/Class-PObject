@@ -1,19 +1,17 @@
 package Class::PObject;
 
-# $Id: PObject.pm,v 1.54.2.3 2004/05/20 06:59:14 sherzodr Exp $
+# PObject.pm,v 1.55 2004/05/20 07:11:26 sherzodr Exp
 
 use strict;
 #use diagnostics;
 use Log::Agent;
 use vars ('$VERSION', '$revision');
 
-$VERSION  = '2.15_01';
-$revision = '$Revision: 1.54.2.3 $';
+$VERSION  = '2.15';
+$revision = '1.55';
 
 # configuring Log::Agent
-logconfig(-level=>$ENV{POBJECT_DEBUG} || 0, 
-          -prefix=>'***',
-          -caller => [-format => '%-30s->', -info   => "sub"]);
+logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
 
 sub import {
     my $class       = shift;
@@ -1025,6 +1023,6 @@ Copyright (c) 2003 Sherzod B. Ruzmetov. All rights reserved.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-$Date: 2004/05/20 06:59:14 $
+2004/05/20 07:11:26
 
 =cut

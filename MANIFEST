@@ -18,7 +18,6 @@ PObject/Template.pm
 PObject/Test.pm
 PObject/Test/Basic.pm
 PObject/Test/HAS_A.pm
-PObject/Test/ISA.pm
 PObject/Test/Types.pm
 PObject/Type.pm
 PObject/Type/CHAR.pm
@@ -43,8 +42,3 @@ t/71hasa_csv.t
 t/72hasa_mysql.t
 t/73hasa_db_file.t
 t/74hasa_sqlite.t
-t/80fixISA_file.t
-t/81fixISA_db_file.t
-t/82fixISA_csv.t
-t/83fixISA_sqlite.t
-t/84fixISA_mysql.t
