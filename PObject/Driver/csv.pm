@@ -1,264 +1,145 @@
 package Class::PObject::Driver::csv;
 
-# $Id: csv.pm,v 1.5 2003/06/20 00:04:41 sherzodr Exp $
+# $Id: csv.pm,v 1.10 2003/08/23 10:36:44 sherzodr Exp $
 
 use strict;
-use base ('Class::PObject::Driver');
 use Carp;
+use Log::Agent;
 use File::Spec;
+use vars ('$VERSION', '@ISA');
+
+require Class::PObject::Driver::DBI;
+@ISA = ('Class::PObject::Driver::DBI');
 
 
-
-# Preloaded methods go here.
 sub save {
-  my $self = shift;
-  my ($object_name, $props, $columns) = @_;
+    my $self = shift;
+    my ($object_name, $props, $columns) = @_;
 
-  # if an id doesn't already exist, we should create one.
-  # refer to _generate_id() for the details
-  unless ( defined $columns->{id} ) {
-    $columns->{id} = $self->_generate_id($object_name, $props);
-  }
-
-  my $dbh   = $self->dbh($object_name, $props)                  or return;
-  my $table = $self->_get_tablename($object_name, $props, $dbh) or return;
-  
-  # we should know generate SQL statement for inserting/upgrating the object
-  # record
-  my ($set_str, @set, @holder);
-
-  # to do it, we iterate over each column to be stored
-  while ( my($k, $v) = each %$columns ) {
-    # build @set and @holder arrays - the easiest and secure way
-    # of creating SQL statement dynamically
-    push @set,    "$k=?";
-    push @holder, $v;
-  }
-  
-  # check if this id already exists:
-  my $exists = $dbh->selectrow_array(qq|SELECT * FROM $table WHERE id=?|, undef, $columns->{id});
-  if ( $exists ) {
-    # if it does, we should update the existing record:
-    my $sql_str = sprintf("UPDATE %s SET %s WHERE id=?", $table, join (", ", @set));
-    my $sth = $dbh->prepare($sql_str);
-    unless($sth->execute(@holder, $columns->{id})) {
-      $self->error("couldn't execute '$sth->{Statement}': " . $sth->errstr);
-      return undef;
+    # if an id doesn't already exist, we should create one.
+    # refer to generate_id() for the details
+    unless ( defined $columns->{id} ) {
+        $columns->{id} = $self->generate_id($object_name, $props)
     }
-  } else {
-    # if it doesn't, insert it as a new record
-    my (@cols, @values);
-    while ( my ($k, $v) = each %$columns ) {
-      push @cols,   $k;
-      push @values, '?';
-    }
-    my $sql_str = sprintf("INSERT INTO %s (%s) VALUES(%s)", $table, join(', ', @cols), join(', ', @values));
-    my $sth = $dbh->prepare($sql_str);
-    unless($sth->execute(@holder)) {
-      $self->error("couldn't execute query '$sth->{Statement}': " . $sth->errstr);
-      return undef;
-    }
-  }
-  return $columns->{id};
-}
 
-
-
-
-
-
-
-sub _generate_id {
-  my ($self, $object_name, $props) = @_;
-
-  my $dbh   = $self->dbh($object_name, $props)                  or return;
-  my $table = $self->_get_tablename($object_name, $props, $dbh) or return;
-
-  my $last_id = $dbh->selectrow_array(qq|SELECT id FROM $table ORDER BY id DESC LIMIT 1|);
-  return ++$last_id;
-}
-
-
-
-
-
-
-
-sub load {
-  my $self = shift;
-  my ($object_name, $props, $terms, $args) = @_;
-
-  if ( $terms && (ref($terms) ne 'HASH') && ($terms =~m/^\d+$/) ) {
-    $terms = {id => $_[2]};
-  }
-
-  $args ||= { };
-  my (@where, @holder, $where_str, $order_str, $limit_str);
-  $order_str = $limit_str = $where_str = "";
-
-  # creating key/values for 'WHERE' clause
-  while ( my($k, $v) = each %$terms ) {
-    push @where, "$k=?";
-    push @holder, $v
-  }  
-  if ( @where ) {
-    $where_str = "WHERE " . join(" AND ", @where)
-  }
-
-  # creating an 'ORDER BY' clause
-  if ( defined $args->{'sort'} ) {
-    $args->{direction} ||= 'asc';
-    $order_str = sprintf("ORDER BY %s %s", $args->{'sort'}, $args->{direction})
-  }
-
-  # creating 'LIMIT' clause
-  if ( defined $args->{limit} ) {
-    $args->{offset} ||= 0;
-    $limit_str = sprintf("LIMIT %d, %d", $args->{offset}, $args->{limit});
-  }
-
-  my $dbh   = $self->dbh($object_name, $props)                  or return;
-  my $table = $self->_get_tablename($object_name, $props, $dbh) or return;
+    my $dbh   = $self->dbh($object_name, $props)                or return;
+    my $table = $self->_tablename($object_name, $props, $dbh)   or return;
   
-  my $sth   = $dbh->prepare(qq|SELECT * FROM $table $where_str $order_str $limit_str|);    
-  unless($sth->execute(@holder)) {
-    $self->error($sth->errstr);
-    return undef
-  }
-  unless ( $sth->rows ) {
-    return []
-  }
-
-  my @rows = ();
-  while ( my $row = $sth->fetchrow_hashref() ) {
-    push @rows, $row
-  }
-  return \@rows;
+    my $exists = $self->count($object_name, $props, {id=>$columns->{id}});
+    if ( $exists ) {
+        my ($sql, $bind_params) = $self->_prepare_update($table, $columns, {id=>$columns->{id}});
+        my $sth = $dbh->prepare( $sql );
+        unless( $sth->execute(@$bind_params) ) {
+            $self->error("couldn't execute '$sth->{Statement}': " . $sth->errstr);
+            return undef
+        }
+    } else {
+        my ($sql, $bind_params) = $self->_prepare_insert($table, $columns);
+        my $sth = $dbh->prepare( $sql );
+        unless($sth->execute(@$bind_params)) {
+            $self->error("couldn't execute query '$sth->{Statement}': " . $sth->errstr);
+            return undef
+        }
+    }
+    return $columns->{id}
 }
 
 
-sub remove {
-  my $self = shift;
-  my ($object_name, $props, $id)  = @_;
 
-  unless ( defined $id ) {
-    $self->error("remove(): don't know what to remove. 'id' is missing");
-    return undef;
-  }
 
-  my $dbh = $self->dbh($object_name, $props) or return;
-  my $table = $self->_get_tablename($object_name, $props, $dbh) or return;
-  my $sth = $dbh->prepare(qq|DELETE FROM $table WHERE id=?|);
-  unless ( $sth->execute($id) ) {
-    $self->error($sth->errstr);
-    return undef;
-  }
-  return $id;
+
+
+
+sub generate_id {
+    my ($self, $object_name, $props) = @_;
+
+    my $dbh   = $self->dbh($object_name, $props)                  or return;
+    my $table = $self->_tablename($object_name, $props, $dbh)     or return;
+
+    my $last_id = $dbh->selectrow_array(qq|SELECT id FROM $table ORDER BY id DESC LIMIT 1|);
+    return ++$last_id
 }
 
 
-sub remove_all {
-  my $self  = shift;
-  my ($object_name, $props) = @_;
-
-  my $dbh   = $self->dbh($object_name, $props)                  or return;
-  my $table = $self->_get_tablename($object_name, $props, $dbh) or return;
-  my $sth   = $dbh->prepare(qq|DELETE FROM $table|);
-  unless ( $sth->execute() ) {
-    $self->error($sth->errstr);
-    return undef;
-  }
-  return 1;
-}
 
 
 
 sub dbh {
-  my $self = shift;
-  my ($object_name, $props) = @_;
+    my $self = shift;
+    my ($object_name, $props) = @_;
 
-  my $dir          = $self->_get_dirname($props) or return;
-  my $stashed_name = "dbh:$dir";
-
-  if ( defined $self->stash($stashed_name) ) {
-    return $self->stash($stashed_name);
-  }
-  
-  require DBI;
-  
-  my $dbh = DBI->connect("DBI:CSV:f_dir=$dir");
-  unless ( defined $dbh ) {
-    $self->error("cannot connect: $DBI::errstr");
-    return undef;
-  }
-  $self->stash($stashed_name, $dbh);
-  $self->stash('close', 1);
-  return $dbh;
-}
-
-
-
-
-
-
-
-
-sub DESTROY { }
-
-
-
-
-sub _get_dirname {
-  my $self    = shift;
-  my ($props) = @_;
-  
-  my $datasource = $props->{datasource} || {};
-  my $dir        = $datasource->{Dir};
-  unless ( defined $dir ) {
-    $dir = File::Spec->tmpdir();
-  }
-  unless ( -e $dir ) {
-    require File::Path;
-    unless(File::Path::mkpath($datasource->{Dir})) {
-      $self->error("couldn't create datasource '$dir': $!");
-      return undef;
+    if ( defined $props->{datasource}->{Handle} ) {
+        return $props->{datasource}->{Handle}->{Name}
     }
-  }
-  return $dir;
+
+    my $dir          = $self->_dir($props) or return;
+    my $stashed_name = "f_dir=$dir";
+    
+    if ( defined $self->stash($stashed_name) ) {
+        return $self->stash($stashed_name)
+    }
+
+    require DBI;
+    
+    my $dbh = DBI->connect("DBI:CSV:f_dir=$dir");
+    unless ( defined $dbh ) {
+        $self->error($DBI::errstr);
+        return undef
+    }
+    $self->stash($stashed_name, $dbh);
+    $self->stash('close', 1);
+    return $dbh
+}
+
+
+
+sub _dir {
+    my $self    = shift;
+    my ($props) = @_;
+  
+    my $datasource = $props->{datasource} || {};
+    my $dir        = $datasource->{Dir};
+    unless ( defined $dir ) {
+        $dir = File::Spec->tmpdir
+    }
+    unless ( -e $dir ) {
+        require File::Path;
+        unless(File::Path::mkpath($dir)) {
+            $self->error("couldn't create datasource '$dir': $!");
+            return undef
+        }
+    }
+    return $dir
 }
 
 
 
 
-sub _get_tablename {
-  my ($self, $object_name, $props, $dbh) = @_;
 
-  my $table = undef;
-  if ( $props->{Table} ) {
-    $table = $props->{Table}
-    
-  } else {
-    $object_name =~ s/\W+/_/g;
-    $table       = lc($object_name)
 
-  }
 
-  my $dir   = $self->_get_dirname($props) or return;
-  if ( -e File::Spec->catfile($dir, $table) ) {
-    return $table;
-  }
-  
-  my @sets    = ();
-  for my $colname ( @{$props->{columns}} ) {
-    push @sets, "$colname BLOB";
-  }
-  my $sql_str = sprintf("CREATE TABLE %s (%s)", $table, join (", ", @sets));
-  my $sth = $dbh->prepare($sql_str);
-  unless($sth->execute()) {
-    $self->error($sth->{Statement} . ': ' . $sth->errstr);
-    return undef;
-  }
-  return $table;
+sub _tablename {
+    my ($self, $object_name, $props, $dbh) = @_;
+
+    my $table = $self->SUPER::_tablename($object_name, $props);
+
+    my $dir   = $self->_dir($props) or return;
+    if ( -e File::Spec->catfile($dir, $table) ) {
+        return $table
+    }
+
+    my @sets    = ();
+    for my $colname ( @{$props->{columns}} ) {
+        push @sets, "$colname BLOB";
+    }
+
+    my $sql_str = sprintf("CREATE TABLE %s (%s)", $table, join (", ", @sets));
+    my $sth = $dbh->prepare($sql_str);
+    unless($sth->execute()) {
+        $self->error($sth->{Statement} . ': ' . $sth->errstr);
+        return undef
+    }
+    return $table
 }
 
 
@@ -269,31 +150,77 @@ __END__
 
 =head1 NAME
 
-Class::PObject::Driver::csv - csv driver for Class::PObject
+Class::PObject::Driver::csv - CSV Pobject Driver
 
 =head1 SYNOPSIS
 
-  use Class::PObject;
-  pobject Person => {
-    columns => ['id', 'name', 'email'],
-    driver  => 'csv',
-    datasource => {
-      Dir => 'data/',
-      Table => 'person'
-    }
-  };
-
-
-=head1 WARNING
-
-The driver is buggy. Use it ONLY if you want to get all the test scripts running.
+    use Class::PObject;
+    pobject Person => {
+        columns => ['id', 'name', 'email'],
+        driver  => 'csv',
+        datasource => {
+            Dir => 'data/',
+            Table => 'person'
+        }
+    };
 
 =head1 DESCRIPTION
 
-Comming soon...
+Class::PObject::Driver::csv is a direct subclass of L<Class::PObjecet::Driver::DBI|Class::PObject::Driver::DBI>.
+It inherits all the base functionality needed for all the DBI-related classes. For details
+of these methods and their specifications refer to L<Class::PObject::Driver|Class::PObject::Driver> and
+L<Class::PObject::Driver::DBI|Class::PObject::Driver::DBI>.
 
+=head2 DATASOURCE
 
+I<datasource> attribute should be in the form of a hashref. The following keys are supported
 
+=over 4
+
+=item *
+
+C<Dir> - points to the directory where the CSV files are stored. If this is missing
+will default to your system's temporary folder.
+
+=item *
+
+C<Table> - defines the name of the table that objects will be stored in. If this is missing
+will default to the name of the object, non-alphanumeric characters replaced with underscore (C<_>).
+
+=back
+
+=head1 METHODS
+
+Class::PObject::Driver::csv (re-)defines following methods of its own
+
+=over 4
+
+=item *
+
+C<dbh()> base DBI method is overridden with the version that creates a DBI handle
+through L<DBD::CSV|DBD::CSV>.
+
+=item *
+
+C<save()> either builds a SELECT SQL statement by calling base C<_prepare_select()> 
+if the object id is missing, or builds an UPDATE SQL statement by calling base C<_prepare_update()>.
+
+If the ID is missing, calls C<generate_id()> method, which returns a unique ID for the object.
+
+=item *
+
+C<generate_id($self, $pobject_name, \%properties)> returns a unique ID for new objects. This determines
+the new ID by performing a I<SELECT id FROM $table ORDER BY id DESC LIMIT 1> SQL statement to 
+determine the latest inserted ID.
+
+=item *
+
+C<_tablename($self, $pobject_name, \%properties)>
+
+Redefines base method C<_tablename()>. If the table is missing, it will also create the table
+for you.
+
+=back
 
 =head1 SEE ALSO
 

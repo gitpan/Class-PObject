@@ -1,192 +1,108 @@
 package Class::PObject::Driver::mysql;
 
-# $Id: mysql.pm,v 1.6 2003/06/20 06:27:30 sherzodr Exp $
+# $Id: mysql.pm,v 1.17 2003/08/23 14:31:29 sherzodr Exp $
 
 use strict;
-use base ('Class::PObject::Driver');
-use Carp;
+use Log::Agent;
+use vars qw(@ISA $VERSION);
+require Class::PObject::Driver::DBI;
 
-# Preloaded methods go here.
+@ISA = ('Class::PObject::Driver::DBI');
+
+# 
+# overriding _prepare_insert() with the version that uses REPLACE
+# statement of MySQL instead of usual INSERT
+#
+sub _prepare_insert {
+    my ($self, $table_name, $columns) = @_;
+
+    my ($sql, @fields, @bind_params);
+    $sql = "REPLACE INTO $table_name SET ";
+    while ( my ($k, $v) = each %$columns ) {
+        push @fields, "$k=?";
+        push @bind_params, $v
+    }
+
+    $sql .= join(", ", @fields);
+    return ($sql, \@bind_params)
+}
+
+
+
 
 
 sub save {
-  my ($self, $object_name, $props, $columns) = @_;
+    my ($self, $object_name, $props, $columns) = @_;
+    
+    my $dbh                 = $self->dbh($object_name, $props)        or return;
+    my $table               = $self->_tablename($object_name, $props) or return;
+    my ($sql, $bind_params) = $self->_prepare_insert($table, $columns);
 
-  my $dbh = $self->dbh($object_name, $props) or return;
-  
-  my ($set_str, $table, @set, @holder);
-  $table = $self->_get_tablename($object_name, $props) or return;
+    $self->_write_lock($dbh, $table) or return undef;
 
-  while ( my($k, $v) = each %$columns ) {
-    push @set, "$k=?";
-    push @holder, $v;
-  }
-  my $sql_str = sprintf("REPLACE INTO %s SET %s", $table, join (', ', @set));
-  my $sth     = $dbh->prepare($sql_str);
-  unless ($sth->execute(@holder) ) {
-    $self->error("couldn't save/update the record: " . $sth->errstr);
-    return undef;
-  }
-  return $dbh->{mysql_insertid};
+    my $sth                 = $dbh->prepare( $sql );
+    unless ( $sth->execute(@$bind_params) ) {
+        $self->errstr("couldn't save/update the record: " . $sth->errstr);
+        logerr $self->errstr;
+        return undef
+    }
+    $self->_unlock($dbh) or return undef;
+    return $dbh->{mysql_insertid} || $dbh->{insertid}
 }
 
 
 
 
-
-
-sub load {
-  my $self = shift;  
-  my ($object_name, $props, $terms, $args) = @_;
-
-  if ( $terms && (ref($terms) ne 'HASH') && ($terms =~m/^\d+$/) ) {
-    $terms = {id => $_[2]};
-  }
-
-  $args ||= { };
-  
-  my (@where, @holder, $where_str, $order_str, $limit_str);
-  # initializing the string to prevent 'undefined' warnings from Perl
-  $where_str = $order_str = $limit_str = "";
-  while ( my($k, $v) = each %$terms ) {
-    push @where, "$k=?";
-    push @holder, $v;
-  }
-
-  if ( defined $args->{'sort'} ) {
-    $args->{direction} ||= 'asc';
-    $order_str = sprintf("ORDER BY %s %s", $args->{'sort'}, $args->{direction});  
-  }
-
-  if ( defined $args->{limit} ) {
-    $args->{offset} ||= 0;
-    $limit_str = sprintf("LIMIT %d, %d", $args->{offset}, $args->{limit});
-  }
-
-  if ( @where ) {
-    $where_str = "WHERE " . join(" AND ", @where);
-  }
-
-  my $dbh   = $self->dbh($object_name, $props)            or return undef;
-  my $table = $self->_get_tablename($object_name, $props) or return undef;
-  my $sth   = $dbh->prepare(qq|SELECT * FROM $table $where_str $order_str $limit_str|);  
-  unless($sth->execute(@holder)) {
-    $self->error($sth->errstr);
-    return undef;
-  }
-  unless ( $sth->rows ) {
-    return [];
-  }
-  my @rows = ();
-  while ( my $row = $sth->fetchrow_hashref() ) {
-    push @rows, $row;
-  }
-  
-  return \@rows;
-}
-
-
-sub remove {
-  my ($self, $object_name, $props, $id) = @_;
-  
-  unless ( defined $id ) {
-    return;
-  }
-
-  my $dbh = $self->dbh($object_name, $props);
-  my $table = $self->_get_tablename($object_name, $props) or return;
-  $dbh->do(qq|DELETE FROM $table WHERE id=?|, undef, $id);
-}
-
-
-sub remove_all {
-  my ($self, $object_name, $props) = @_;
-
-  my $table = $self->_get_tablename($object_name, $props) or return;
-  return $self->dbh($object_name, $props)->do(qq|DELETE FROM $table|);
-}
 
 
 
 
 
 sub dbh {
-  my ($self, $object_name, $props) = @_;
+    my ($self, $object_name, $props) = @_;
 
-  # checking if datasource provides adequate information to us
-  my $datasource = $props->{datasource};
-  unless ( ref($datasource) eq 'HASH' ) {    
-    $self->error("'datasource' is invalid");
-    return undef;
-  }
-  
-  # Unforunately, the following line will not work as intended if the user
-  # passed 'Handle' datasource attribute. It is a bug, so should be fixed
-  # some other way
-  #my $stashed_name = sprintf("DSN:%s", $props->{datasource}->{DSN});
-  my $stashed_name = 'dbh';
+    # checking if datasource provides adequate information to us
+    my $datasource = $props->{datasource};
+    unless ( ref($datasource) eq 'HASH' ) {    
+        $self->errstr("'datasource' is invalid");
+        return undef
+    }
 
-  if ( defined $self->stash($stashed_name) ) {
-    return $self->stash($stashed_name);
-  }
+    if ( defined $props->{datasource}->{Handle} ) {
+        return $props->{datasource}->{Handle}
+    }
   
-  if ( $datasource->{Handle} ) {
-    $self->stash($stashed_name, $datasource->{Handle});
-    return $datasource->{Handle};
-  }
+    my $stashed_name = $props->{datasource}->{DSN};
+    if ( defined $self->stash($stashed_name) ) {
+        return $self->stash($stashed_name)
+    }
   
-  my $dsn       = $datasource->{DSN};
-  my $db_user   = $datasource->{UserName};
-  my $db_pass   = $datasource->{Password}; 
+    if ( $datasource->{Handle} ) {
+        $self->stash($stashed_name, $datasource->{Handle});
+        return $datasource->{Handle}
+    }
+  
+    my $dsn       = $datasource->{DSN};
+    my $db_user   = $datasource->{User} || $datasource->{UserName};
+    my $db_pass   = $datasource->{Password};
 
-  unless ( $dsn ) {
-    $self->error("'DSN' is missin in 'datasource'");
-    return undef;
-  }
+    unless ( $dsn ) {
+        $self->errstr("'DSN' is missing in 'datasource'");
+        return undef
+    }
   
-  require DBI;
-  my $dbh = DBI->connect($dsn, $db_user, $db_pass, {RaiseError=>0, PrintError=>0});
-  unless ( defined $dbh ) {
-    $self->error("couldn't connect to 'DSN': " . $DBI::errstr);
-    return undef;
-  }
-  $self->stash($stashed_name, $dbh);
-  $self->stash('close', 1);
-  return $dbh;
+    require DBI;
+    my $dbh = DBI->connect($dsn, $db_user, $db_pass, {RaiseError=>1, PrintError=>0});
+    unless ( defined $dbh ) {
+        $self->errstr("couldn't connect to 'DSN': " . $DBI::errstr);
+        return undef
+    }
+    $self->stash($stashed_name, $dbh);
+    $self->stash('close', 1);
+    return $dbh
 }
 
 
-
-
-
-
-sub DESTROY {
-  my $self = shift;
-  
-  if ( $self->stash('close') && defined($self->stash('dbh')) ) {    
-    my $dbh = $self->stash('dbh');
-    $dbh->disconnect();
-  }
-}
-
-
-
-
-# 'figures' the name of the table this object should be stored in
-sub _get_tablename {
-  my ($self, $object_name, $props) = @_;
-
-  my $datasource = $props->{datasource};
-  unless ( defined $datasource ) {
-    croak "'datasource' is empty";
-  }
-  my $table = $datasource->{Table};
-  unless ( $table ) {
-    $object_name =~ s/\W+/_/g;
-    $table = lc($object_name);
-  }
-  return $table;
-}
 
 
 
@@ -197,73 +113,86 @@ __END__;
 
 =head1 NAME
 
-Class::PObject::Driver::mysql - mysql driver for Class::PObject
+Class::PObject::Driver::mysql - MySQL Pobject Driver
 
-=head1 SYNOPSIS  
+=head1 SYNOPSIS
 
-  pobject Person => {
-    columns   => ['id', 'name', 'email'],
-    driver    => 'mysql',
-    datasource=> {
-      DSN => 'dbi:mysql:db_name',
-      UserName => 'sherzodr',
-      Password => 'secret',
-      Table    => 'person',
-    }
-  };
+    use Class::PObject;
+    pobject Person => {
+        columns => ['id', 'name', 'email'],
+        driver  => 'mysql',
+        datasource => {
+            DSN => 'dbi:mysql:db_name',
+            User => 'sherzodr',
+            Password => 'marley01'
+        }
+    };
 
 
 =head1 DESCRIPTION
 
-Class::PObject::Driver::mysql is a driver for Class::PObject for storing object data in mysql tables. Following class properties are required:
+Class::PObject::Driver::mysql is a direct subclass of L<Class::PObjecet::Driver::DBI|Class::PObject::Driver::DBI>.
+It inherits all the base functionality needed for all the DBI-related classes. For details
+of these methods and their specifications refer to L<Class::PObject::Driver|Class::PObject::Driver> and
+L<Class::PObject::Driver::DBI|Class::PObject::Driver::DBI>.
+
+=head2 DATASOURCE
+
+I<datasource> attribute should be in the form of a hashref. The following keys are supported
 
 =over 4
 
-=item * 
+=item *
 
-C<driver> - tells Class::PObject to use 'mysql' driver.
+C<DSN> - provides a DSN string suitable for the first argument of DBI->connect(...).
+Usually it should be I<dbi:mysql:$database_name>.
 
 =item *
 
-C<datasource> - gives the DBI details on how to connect to mysql database. C<datasource> should be in the form of a hashref, and should defined C<DSN>, C<UserName> and C<Password>. If you ommit C<Table>, it will default to the name of the object, lowercased, and non-alphanumeric values replaced with '_'. For example, if you define an object as:
+C<User> - username to connect to the database.
 
-  pobject Gallery::User => {
-    columns => \@columns,
-    driver => 'mysql',
-    datasource=> {
-      DSN => 'dbi:mysql:gallery',
-      UserName => 'sherzodr',
-      Password => 'secret',     
-    }
-  };
+=item *
 
-It will store itself into a table 'gallery_user' inside 'gallery' database. You can use 'Table' 'datasource' attribute if you want to override this default behavior:
+C<Password> - password required by the C<User> to connect to the database. If the user doesn't
+require any passwords, you can set it to undef.
 
-  pobject Gallery::User => {
-      columns => \@columns,
-      driver => 'mysql',
-      datasource=> {
-        DSN => 'dbi:mysql:gallery',
-        UserName => 'sherzodr',
-        Password => 'secret',
-        Table   => 'user'
-    }
-  };
+=item *
+
+C<Table> - defines the name of the table that objects will be stored in. If this is missing
+will default to the name of the object, non-alphanumeric characters replaced with underscore (C<_>).
+
+=item *
+
+C<Handle> attribute is useful if you already have C<$dbh> handy. If $dbh is used, C<DSN>, C<User>
+and C<Password> attributes will be obsolete nor make sense.
 
 =back
 
-=head1 OBJECT STORAGE
+=head1 METHODS
 
-Objects of the same type are stored in the same table, as seperate records. Each column of the object represents one column of the database table. It's required that you first create your tables for storing the objects.
+Class::PObject::Driver::mysql (re-)defines following methods of its own
 
-=head1 ID GENERATION
+=over 4
 
-There is no direct id generation routine available on this driver. It is directly manipulated by mysql's 'AUTO_INCREMENT' column type. It means, you should ALWAYS declare your 'id' columns as AUTO_INCREMENT PRIMARY KEY. 
+=item *
 
-=head1 SERIALIZATION
+C<dbh()> base DBI method is overridden with the version that creates a DBI handle
+using I<DSN> I<datasource> attribute.
 
-There is no direct serialization applied on the data. All the data goes as is into respective columns of the table.
+=item *
 
+C<save()> - stores/updates the object
+
+=item *
+
+C<_prepare_insert()> redefines base method of the same name with the version that generates
+a REPLACE SQL statement instead of default INSERT SQL statement. This allows the driver to
+either leave "insert or update?" problem to MySQL.
+
+This implies that table's I<id> column should be of I<AUTO_INCREMENT> type. This will ensure
+that MySQL will take care of creating auto-incrementing unique object ids for you.
+
+=back
 
 =head1 SEE ALSO
 
@@ -272,7 +201,13 @@ L<Class::PObject::Driver::file>
 
 =head1 AUTHOR
 
-Sherzod Ruzmetov <sherzodr@cpan.org>
+Sherzod Ruzmetov E<lt>sherzodr@cpan.orgE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2003 by Sherzod B. Ruzmetov.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. 
 
 =cut
-

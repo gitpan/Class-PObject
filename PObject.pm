@@ -1,419 +1,149 @@
 package Class::PObject;
 
-# $Id: PObject.pm,v 1.10 2003/06/20 06:34:39 sherzodr Exp $
+# $Id: PObject.pm,v 1.30 2003/08/25 12:59:11 sherzodr Exp $
 
 use strict;
-use Carp;
-use diagnostics;
-use vars ('$VERSION', '@ISA', '@EXPORT', '@EXPORT_OK');
-require Exporter;
+use Log::Agent;
+use vars qw($VERSION $revision);
 
-@ISA        = ('Exporter');
-@EXPORT     = ('pobject');
-@EXPORT_OK  = ('struct');
+$VERSION    = '2.01';
+($revision) = '$Revision: 1.30 $' =~ m/Revision:\s*(\S+)/;
 
-($VERSION)  = '1.8';
+# configuring Log::Agent
+logconfig(-level=>$ENV{POBJECT_DEBUG} || 0, -caller=>[-display=>'($sub/$line)']);
 
 # Preloaded methods go here.
 
+sub import {
+    my $class       = shift;
+    my $caller_pkg  = (caller)[0];
 
-*pobject    = \&struct;
+    unless ( @_ ) {
+        no strict 'refs';
+        *{ "$caller_pkg\::pobject" } = \&{ "$class\::pobject" };
+        return 1
+    }
+    require Exporter;
+    return $class->Exporter::import(@_)
+}
 
-sub struct {
-  my ($class, $props);
+sub pobject {
+    my ($class, $props);
 
-  # are we given explicit class name to be created in?
-  if ( @_ == 2 ) {
-    ($class, $props) = @_;
-  }
-  # Is class name assumed to be the current caller's package?
-  elsif ( $_[0] && (ref($_[0]) eq 'HASH') ) {
-    $props = $_[0];
-    $class = (caller())[0];
-  }
-  # otherwise, we throw a usage exception:
-  else {
-    croak "Usage error";
-  }
+    # are we given explicit class name to be created in?
+    if ( @_ == 2 ) {
+        ($class, $props) = @_;
+        logtrc 1, "pobject %s => %s", $class, $props
+    }
+    # Is class name assumed to be the current caller's package?
+    elsif ( $_[0] && (ref($_[0]) eq 'HASH') ) {
+        $props = $_[0];
+        $class = (caller())[0];
+        logtrc 1, "pobject ('%s'), %s", $class, $props
+    }
+    # otherwise, we throw a usage exception:
+    else {
+        logcroak "Usage error"
+    }
 
-  # should we make sure that current package is not 'main'?
-  if ( $class eq 'main' ) {
-    croak "class 'main' cannot be the class name";
-  }
+    # should we make sure that current package is not 'main'?
+    if ( $class eq 'main' ) {
+        logcroak "class 'main' cannot be the class name"
+    }
 
-  # creating the class virtually. Note, that it is different
-  # then the way Class::Struct works.
-  {
+    # creating the class virtually. Note, that it is different
+    # then the way Class::Struct works. Class::Struct literally builds
+    # the class contents in a string, and then eval()s them.
+    # And we play with symtables. However, I'm not sure how secure this method is.
+
     no strict 'refs';
     # if the properties have already been created, it means the user
     # tried to create the class with the same name twice. He should be shot!
     if ( ${ "$class\::props" } ) {
-      croak "are you trying to create the same class two times?";
+        logcroak "are you trying to create the same class two times?"
     }
 
     # we should have some columns
     unless ( @{$props->{columns}} ) {
-      croak "class $class should have columns!";
+        logcroak "class '%s' should have columns!", $class
     }
 
     # one of the columns should be 'id'. I believe this is a limitation,
     # which should be eliminated in next release
     my $has_id = 0;
     for ( @{$props->{columns}} ) {
-      $has_id = $_ eq 'id' and last;
+        $has_id = ($_ eq 'id') and last
     }
     unless ( $has_id ) {
-      croak "'id' column is required! Read 'TODO' section of the manual for more details";
+        logcroak "'id' column is required! Read 'TODO' section of the manual for more details"
     }
-     
-    # if no driver was specifiied, default driver to be used is 'file'
-    $props->{driver} ||= 'file';
-    
-    ${ "$class\::props" }   = $props;
-    *{ "$class\::new" }     = \&Class::PObject::Template::new;
-    *{ "$class\::columns" } = sub { return $_[0]->{columns} };
 
-    # installing 'properties' accessor method. It returned all the properties
-    # if the class (everything passed to struct()
-    #*{ "$class\::properties" } = sub {
-    #      no strict 'refs';
-    #      return ${ (ref($_[0]) || $_[0]) . '::props' };
-    #    };
-
-    # installing all remaining accessor method for manipulating columns
-    for my $colname ( @{$props->{columns}} ) {
-      # if the method with the same name is already present in
-      # caller's package, we should let them override us
-      $class->can($colname) && next;
-      *{ "$class\::$colname" } = sub {
-          $_[1] ? ($_[0]->{columns}->{$colname} = $_[1]) :
-                  return $_[0]->{columns}->{$colname}
+    # certain method names are reserved. Making sure they won't get overridden
+    my @reserved_methods = qw(load new save pobject_init DESTROY);
+    for my $method ( @reserved_methods ) {
+        for my $column ( @{$props->{columns}} ) {
+            if ( $method eq $column ) {
+                logcroak "method  '%s' is reserved", $method
+            }
         }
-    }    
+    }
+
+    # we should also check if the type map was specified for all the columns.
+    # if not, we specify it for them:
+    for my $colname ( @{$props->{columns}} ) {
+        unless ( defined($props->{tmap}) && $props->{tmap}->{$colname} ) {
+            if ( $colname eq 'id' ) {
+                logtrc 1, "column '%s' defaulting to 'INTEGER'", $colname;
+                $props->{tmap}->{$colname} = 'INTEGER';
+                next
+            }
+            logtrc 1, "column '%s' defaulting to 'VARCHAR(250)'", $colname;
+            $props->{tmap}->{$colname}   = 'VARCHAR(250)'
+        }
+    }
+
+    # if no driver was specified, default driver to be used is 'file'
+    unless ( $props->{driver} ) {
+        logtrc 1, "'driver' is missing. Defaulting to 'file'";
+        $props->{driver} = 'file'
+    }
+
+    # it's important that we cache all the properties passed so the pobject()
+    # as a static data. This lets multiple instances of the pobject to access
+    # this data whenever needed
+    ${ "$class\::props" }   = $props;
+
+    require Class::PObject::Template;
+
+    *{ "$class\::new" }         = \&Class::PObject::Template::new;
+    *{ "$class\::columns" }     = \&Class::PObject::Template::columns;
     *{ "$class\::load" }        = \&Class::PObject::Template::load;
     *{ "$class\::save" }        = \&Class::PObject::Template::save;
     *{ "$class\::remove" }      = \&Class::PObject::Template::remove;
     *{ "$class\::remove_all" }  = \&Class::PObject::Template::remove_all;
-    *{ "$class\::error" } = sub {
-          no strict 'refs';
-          if ( defined $_[1] ) {
-            ${ (ref($_[0]) || $_[0]) . '::ERROR'} = $_[1];
-          }
-          return ${ (ref($_[0]) || $_[0]) . '::ERROR'};
-        };
-    
-    *{ "$class\::dump" } = sub {
-          require Data::Dumper;
-          my $d = Data::Dumper->new([$_[0]], [ref $_[0]]);
-          $d->Indent($_[1]);
-          $d->Deepcopy(1);
-          $d->Dump
+    *{ "$class\::count" }       = \&Class::PObject::Template::count;
+    *{ "$class\::errstr" }      = \&Class::PObject::Template::errstr;
+    *{ "$class\::dump" }        = \&Class::PObject::Template::dump;
+    *{ "$class\::__props" }     = \&Class::PObject::Template::__props;
+    *{ "$class\::__driver" }    = \&Class::PObject::Template::__driver;
+
+    # installing accessor methods, only if they haven't already been defined
+    for my $colname ( @{$props->{columns}} ) {
+        if ( $class->UNIVERSAL::can($colname) ) {
+            logtrc 1, "method '%s' already exists in the caller's package", $colname;
+            next
         }
-  }
+        *{ "$class\::$colname" } = sub {
+            if ( @_ == 2 ) {
+                $_[0]->{columns}->{$colname}    = $_[1];
+                $_[0]->{_modified}->{$colname}  = 1
+            }
+            return $_[0]->{columns}->{$colname}
+        }
+    }
 }
 
-
-
-
-# templates for newly created class
-package Class::PObject::Template;
-use Carp;
-
-sub new {
-  my $class = shift;
-  $class    = ref($class) || $class;
-
-  # What should be do if we detect odd number of arguments?
-  # I'd say we should croak() right away. We don't want to
-  # end-up with corrupted record in the database, whether the
-  # code checks for error messages, or not!
-  if ( @_ % 2 ) {
-    croak "Odd number of arguments passed to new(). May result in corrupted data";
-  }
-
-  my $props_sub = sub {
-    no strict 'refs';
-    return ${ "$class\::props" }
-  };
-
-  my $props = $props_sub->();
-
-  # object properties as represented internally by Class::PObject.
-  # Please, don't use this information from within your codes. This
-  # change in subsequent releases
-  my $self = {
-      columns     => { },
-      driver      => $props->{driver},
-      datasource  => $props->{datasource} || undef,
-  };
-  
-  # DBD::CVS seems to keep all the column names in uppercase. This is a problem,
-  # when the load() method calls new() with key/value pairs while creating an object
-  # off the disk. So we first convert the @_ to a hashref
-  my $args = { @_ };
-  # and fill in 'columns' attribute of the class with lower-cased names:
-  while ( my ($k, $v) = each %$args ) {
-    $self->{columns}->{lc $k} = $v;
-  }
-
-  # It's possible that new() was not given all the column/values. So we
-  # detect the ones missing, and assign them 'undef'
-  for my $colname ( @{$props->{columns}} ) {
-    $self->{columns}->{$colname} ||= undef;
-  }
-  
-  # I'm not sure if 'datasource' should be mandatory. I'm open to
-  # any suggestions. Some drivers may be able to recover 'datasource' on the fly,
-  # without asking for expclicit definition. I'm open to suggestions
-  unless ( defined $self->{datasource} ) {
-    #$class->error("'datasource' is required");
-    #return undef;
-  }
-
-  # we may also check if the driver is indeed a valid one. However doing so
-  # does not allow creating in-memory objects without valid driver. So let's leave 
-  # this test for related methods.
-  
-  # returning the object!
-  return bless($self, $class);
-}
-
-
-
-
-sub save {
-  my $self  = shift;
-  my $class = ref($self) || $self;
-
-  my $props_sub = sub {
-    no strict 'refs';
-    return ${ "$class\::props" }
-  };
-
-  my $props = $props_sub->();
-  my $pm = "Class::PObject::Driver::" . $props->{driver};
-
-  # closure for getting and setting driver object
-  my $get_set_driver = sub {
-    no strict 'refs';
-    if ( defined $_[0] ) {
-      ${ "$pm\::OBJECT" } = $_[0];
-    }
-    return ${ "$pm\::OBJECT" };
-  };
-
-  # if the driver object is still available, we should use it
-  # instead of creating another object. For DBI-related drivers,
-  # creating new objects may be costly
-  my $driver_obj = $get_set_driver->();
-  unless ( defined $driver_obj ) {
-    eval "require $pm";
-    if ( $@ ) {
-      $self->error("couldn't load $pm: " . $@);
-      return undef;
-    }
-    $driver_obj = $pm->new();
-    unless ( defined $driver_obj ) {
-      $self->error("couldn't create '$pm' object: " . $pm->error);
-      return undef;
-    }
-    # we cache the driver object now so it will be available later
-    $get_set_driver->($driver_obj);
-  }
-
-  # we now call the driver's save() method, with the name of the class,
-  # all the props passed to struct(), and column values to be stored
-  my $rv = $driver_obj->save($class, $props, $self->{columns});
-  unless ( defined $rv ) {
-    $self->error($driver_obj->error);
-    return undef;
-  }
-  return $rv;
-}
-
-
-
-
-
-
-sub load {
-  my $self = shift;
-  my $class = ref($self) || $self;
-
-  # closure for getting the class properties
-  my $props_sub = sub {
-    no strict 'refs';
-    return ${ "$class\::props" }
-  };
-
-  my $props = $props_sub->();
-  my $pm = "Class::PObject::Driver::" . $props->{driver};
-
-  # closure for getting and setting driver object
-  my $get_set_driver = sub {
-    no strict 'refs';
-    if ( defined $_[0] ) {
-      ${ "$pm\::OBJECT" } = $_[0];
-    }
-    return ${ "$pm\::OBJECT" };
-  };
-
-  my $driver_obj = $get_set_driver->();
-  unless ( defined $driver_obj ) {
-    eval "require $pm";
-    if ( $@ ) {
-      $self->error("couldn't load $pm: " . $@);
-      return undef;
-    }
-    $driver_obj = $pm->new();
-    unless ( defined $driver_obj ) {
-      $self->error($pm->error);
-      return undef;
-    }
-    $get_set_driver->($driver_obj);
-  }
-
-  # if we are not called in context where array value is expected,
-  # we optimize our query by defining 'limit'
-  unless ( wantarray() ) {
-    $_[1]->{limit} = 1;
-  }
-  
-  my $rows = $driver_obj->load($class, $props, @_) or return;
-  unless ( scalar @$rows ) {
-    $self->error( $driver_obj->error );
-    return ();
-  }
-
-  # if calle din array context, we return an array of objects:
-  if (  wantarray() ) {
-    return (map { $self->new(%$_) } @$rows);
-  }
-
-  # if we come this far, we're being called in scalar context
-  return $self->new( %{ $rows->[0] } );
-}
-
-
-
-sub remove {
-  my $self = shift;
-  my $class = ref($self);
-
-  unless ( ref($self) ) {
-    croak "remove() used as a static method";
-  }
-
-  my $props_sub = sub {
-    no strict 'refs';
-    return ${ ref($self) . '::props' }
-  };
-
-  my $props = $props_sub->();
-  my $pm    = "Class::PObject::Driver::" . $props->{driver};
-
-  # closure for getting and setting driver object
-  my $get_set_driver = sub {
-    no strict 'refs';
-    if ( defined $_[0] ) {
-      ${ "$pm\::OBJECT" } = $_[0];
-    }
-    return ${ "$pm\::OBJECT" };
-  };
-
-  my $driver_obj = $get_set_driver->();
-  # if the driver object doesn't already exist, it either means this object
-  # hasn't been flushed into disk yet, so remove() doesn't make sense, or
-  # the driver object was lost somewhere. I believe it is a more serious
-  # problem, so we just have to croak()
-  unless ( defined $driver_obj ) {
-    croak "driver object is missing";
-  }
-
-  # if 'id' field is missing, most likely it's because this particular object
-  # hasn't been saved into disk yet
-  unless ( defined $self->id) {
-    croak "object is not saved into disk yet";
-  }
-
-  my $rv = $driver_obj->remove($class, $props, $self->id);
-  unless ( defined $rv ) {
-    $self->error($driver_obj->error);
-    return undef;
-  }
-  return $rv;
-}
-
-
-
-
-
-
-
-
-sub remove_all {
-  my $self = shift;
-  my $class = ref($self) || $self;
-
-  my $props_sub = sub {
-    no strict 'refs';
-    return ${ (ref($self) || $self) . '::props' }
-  };
-
-  my $props = $props_sub->();
-  my $pm = "Class::PObject::Driver::" . $props->{driver};
-
-  # closure for getting and setting driver object
-  my $get_set_driver = sub {
-    no strict 'refs';
-    if ( defined $_[0] ) {
-      ${ "$pm\::OBJECT" } = $_[0];
-    }
-    return ${ "$pm\::OBJECT" };
-  };
-
-  my $driver_obj = $get_set_driver->();
-
-  unless ( defined $driver_obj ) {
-    eval "require $pm";
-    if ( $@ ) {
-      die "couldn't load $pm: " . $@;
-    }
-    $driver_obj = $pm->new();
-    unless ( defined $driver_obj ) {
-      $self->error($pm->error);
-      return undef;
-    }
-    $get_set_driver->($driver_obj);
-  }
-
-  # if remove_all() is supported, we better call it
-  # otherwise try to deal with it on our own
-  if ( $driver_obj->UNIVERSAL::can('remove_all') ) {
-    my $rv = $driver_obj->remove_all($class, $props);
-    unless ( defined $rv ) {
-      $self->error($driver_obj->error());
-      return undef;
-    }
-    return 1;
-  }
-
-  for ( @{$driver_obj->load($class, $props)} ) {
-    my $dataobj = $self->new(%$_);
-    unless($dataobj->remove()) {
-      $self->error($_->error);
-      return undef;
-    }
-  }
-  return 1;
-}
-
-
-
-
-
-
-
+logtrc 1, "%s loaded successfully", __PACKAGE__;
 
 1;
 __END__
@@ -421,60 +151,60 @@ __END__
 
 =head1 NAME
 
-Class::PObject - Perl extension for programming persistent objects
+Class::PObject - Framework for programming persistent objects
 
 =head1 SYNOPSIS
 
-We can create a person object with:
+After loading the Class::PObject with F<use>, we can declare a pobject
+like so:
 
-  use Class::PObject
+    pobject Person => {
+        columns     => ['id', 'name', 'email'],
+        datasource  => './data'
+    };
 
-  pobject Person => {
-    columns => ['id', 'name', 'email'],
-    datasource => 'data/person'
-  };
+We can also declare the pobject in its own F<.pm> file:
 
-Or even:
+    package Person;
+    use Class::PObject;
+    pobject {
+        columns     => ['id', 'name', 'email''
+        datasource  => './data'
+    };
 
-  package Person;
+We can now create an instance of above Person, and fill it in with data, and
+store it into disk:
 
-  pobject {
-    columns => ['id', 'name', 'email''
-    datasource => 'data/person'
-  };
-
-We can now use the above Person class:
-
-  my $person = new Person();
-
-  $person->name('Sherzod');
-  $person->email('sherzodr@cpan.org');
-
-  my $new_id = $person->save();
+    $person = new Person();
+    $person->name('Sherzod');
+    $person->email('sherzodr@cpan.org');
+    $new_id = $person->save()
 
 We can access the saved Person later, make necessary changes and save back:
 
-  $person = Person->load($new_id);
-  $person->name('Sherzod Ruzmetov (The Geek)');
+    $person = Person->load($new_id);
+    $person->name('Sherzod Ruzmetov (The Geek)');
+    $person->save()
 
-  $person->save();
+We can load multiple objects as well:
 
-We can load all the previously stored objects:
+    @people = Person->load();
+    for ( $i = 0; $i < @people; $i++ ) {
+        $person = $people[$i];
+        printf("[%02d] %s <%s>\n", $person->id, $person->name, $person->email)
+    }
 
-  my @people = Person->load();
-  for ( my $i=0; $i < @people; $i++ ) {
-    my $person = $people[$i];
-    printf("[%02d] %s <%s>\n", $person->id, $person->name, $person->email);
-  }
+or we can load all the objects based on some criteria and sort the list by
+column name in descending order, and limit the results to only the first 3 objects:
 
-or we can load all the objects based on some criteria and sort the list by column name in descending order,
-and limit the results to only the first 3 objects:
+    @people = Person->load(
+                    {name => "Sherzod"},
+                    {sort => "name", direction => "desc", limit=>3});
 
-  my @people = Person->load({name=>"Sherzod"}, {sort=>'name', direction=>'desc', limit=>3});
+We can also seek into a specific point of the result set:
 
-We can also retrieve records incrementally:
+    @people = Person->load(undef, {offset=>10, limit=>10});
 
-  my @people = Person->load(undef, {offset=>10, limit=>10});
 
 =head1 WARNING
 
@@ -483,7 +213,7 @@ Look at TODO section for more details.
 
 =head1 DESCRIPTION
 
-Class::PObject is a class framework for creating persistent objects. Such objects can store themselves
+Class::PObject is a class framework for programming persistent objects. Such objects can store themselves
 into disk, and recreate themselves from the disk.
 
 If it is easier for you, just think of a persistent object as a single record of a relational database:
@@ -494,64 +224,72 @@ If it is easier for you, just think of a persistent object as a single record of
   | 217 | Yagonam O'zing | Sevara |        1 |
   +-----+----------------+--------+----------+
 
-The above record of a song can be represented as a persistent object. Using Class::PObject, you can defined this
-object like this:
+The above record of a song can be represented as a persistent object. Using Class::PObject,
+you can define a class to represent this object like so:
 
-  pobject Song => {
-    columns => ['id', 'title', 'artist', 'album_id']
-  };
+    pobject Song => {
+        columns => ['id', 'title', 'artist', 'album_id']
+    };
 
-  my $song = new Song(title=>"Yagonam O'zing", artist=>"Sevara", album_id=>1);
+
+Now you can create an instance of a Song with the following syntax:
+
+    $song = new Song(title=>"Yagonam O'zing", artist=>"Sevara", album_id=>1);
 
 All the disk access is performed through its drivers, thus allowing your objects truly transparent database
-access. Currently supported drivers are 'mysql', 'file' and 'csv'. More drivers can be added, and I believe will be added.
+access. Currently supported drivers are L<mysql|Class::PObject::Driver::mysql>, L<file|Class::PObject::Driver::file> and L<csv|Class::PObject::Driver::csv>. More drivers can be added, and I believe will be.
 
 =head1 PROGRAMMING STYLE
 
-The style of Class::PObject is very similar to that of L<Class::Struct>. Instead of exporting 'struct()', however,  Class::PObject exports 'pobject()'. Another visual difference is the way you define your arguments. In Class::PObject, each property of the class is represented as one column.
+The style of Class::PObject is very similar to that of L<Class::Struct>. Instead of exporting 'struct()', however,  Class::PObject exports 'pobject()' function. Another visual difference is the way you declare the class. In Class::PObject, each property of the class is represented as a I<column>.
 
 =head2 DEFINING OBJECTS
 
-Object can be created in several ways. You can create the object in its own .pm file with the following syntax:
+Object can be created in several ways. You can create the object in its own F<.pm> file with the following syntax:
 
-  package Article;
-
-  pobject {
-    columns => ['id', 'title', 'date', 'author', 'source', 'text']
-  };
-
+    package Article;
+    use Class::PObject;
+    pobject {
+        columns => ['id', 'title', 'date', 'author', 'source', 'text']
+    };
 
 Or you can also create an in-line object - from within your programs with more explicit declaration:
 
-  pobject Article => {
-    columns => ['id', 'title', 'date', 'author', 'source', 'text']
-  };
+    pobject Article => {
+        columns => ['id', 'title', 'date', 'author', 'source', 'text']
+    };
 
-Effect of the above two examples is identical - Article object. By default, Class::PObject will fall back to 'file' driver if you do not specify any drivers. So the above Article object could also be redefined more explicitly as:
+Effect of the above two examples is identical - a class representing an Article.
+By default, Class::PObject will fall back to L<file|Class::PObject::Driver::file> driver if you
+do not specify any drivers. So the above Article object could also be redefined more explicitly like:
 
-  pobject Article => {
-    columns => \@columns,
-    driver => 'file'
-  };
+    pobject Article => {
+        columns => \@columns,
+        driver => 'file'
+    };
 
-The above examples are creating temporary objects. These are the ones stored in your system's temporary location. So if you want more 'permanent' objects, you should also declare its datasource:
+The above examples are creating temporary objects. These are the ones stored in your system's temporary location.
+If you want more I<permanent> objects, you should also declare its datasource:
 
-  pobject Article => {
-    columns => \@columns,
-    datasource => 'data/articles'
-  };
+    pobject Article => {
+        columns => \@columns,
+        datasource => './data'
+    };
 
-Now, the above article object will store its objects into data/articles folder. Since data storage is so dependant on the drivers, we'll leave it for library drivers.
+Now, the above article object will store its objects into F<data/article/> folder.
+Since data storage is so dependant on the drivers, you should consult respective driver manuals for the details
+of data storage-related topics.
 
 Class declarations are tightly dependant to the type of driver being used, so we'll leave the rest of the declaration to specific drivers. In this document, we'll concentrate more on the user interface of the Class::PObject - something not dependant on the driver.
 
 =head2 CREATING NEW OBJECTS
 
-After you define an object, as described above, now you can create instances of those objects. Objects are created with new() - constructor method. To create an instance of the above Article object, we do:
+After you define a class using C<pobject()>, as shown above, now you can create instances of those objects.
+Objects are created with new() - constructor method. To create an instance of the above Article object, we do:
 
-  $article = new Article();
+    $article = new Article()
 
-The above syntax will create an empty Article object. We can now fill 'columns' of this object one by one:
+The above syntax will create an empty Article object. We can now fill I<columns> of this object one by one:
 
   $article->title("Persistent Objects with Class::PObject");
   $article->date("Sunday, June 08, 2003"),
@@ -559,206 +297,258 @@ The above syntax will create an empty Article object. We can now fill 'columns' 
   $article->source("lost+found (http://author.handalak.com)");
   $article->text("CONTENTS OF THE ARTICLE GOES HERE");
 
-
 Another way of filling in objects, is by passing column values to the constructor - new():
 
-  $article = new Article(title  =>  "Persistent Objects with Class::PObject",
-                         date   =>  "Sunday, June 08, 2003",
-                         author =>  "Sherzod Ruzmetov",
-                         source =>  "lost+found (http://author.handalak.com" );
+    $article = new Article(title  =>  "Persistent Objects with Class::PObject",
+                           date   =>  "Sunday, June 08, 2003",
+                           author =>  "Sherzod Ruzmetov",
+                           source =>  "lost+found (http://author.handalak.com" );
 
-  $article->text("CONTENTS OF THE ARTICLE GO HERE");
+    $article->text("CONTENTS OF THE ARTICLE GO HERE");
 
-Notice, above example is initializing all the properties of the object except for 'text' in the constructor,
-and initializing 'text' separately. You can use any combination, as long as you are satisfied.
+Notice, above example is initializing all the properties of the object except for I<text> in the constructor,
+and initializing I<text> separately. You can use any combination to fill in your objects.
 
 =head2 STORING OBJECTS
 
 Usually, when you create the objects and fill them with data, they are in-memory data structures, and not
-attached to any disk device. It's when you call save() method of those objects when they become so. To store
-the above article into disk:
+attached to disk. This means as soon as your program terminates, or your object instance exits its scope
+the data will be lost. It's when you call C<save()> method on the object when they are stored in disk.
+To store the above Article, we could just say:
 
-  $article->save();
+    $article->save();
 
-save() method returns newly created object id on success, undef on failure. So you may want to check its
+C<save()> method returns newly created object I<id> on success, undef on failure. So you may want to check its
 return value to see if it succeeded:
 
-  my $new_id = $article->save() or die "couldn't store the article";
+    $new_id = $article->save() or die $article->errstr;
 
-Note: we'll talk more about handling exceptions in later sections.
+B<Note:> we'll talk more about handling exceptions in later sections.
 
 =head2 LOADING OBJECTS
 
-No point of storing stuff if you can't retrieve them when you want. Class::PObject objects support load() method which allows you do that. You can retrieve objects in many ways. The easiest, and the most efficient way of loading an object from the disk is by its id:
+No point of storing stuff if you can't retrieve them when you need them. PObjects support load() method which allows you to re-initialize your objects from the disk. You can retrieve objects in many ways. The easiest, and the most efficient way of loading an object from the disk is by its id:
 
-  my $article = Article->load(1251);
+    $article = Article->load(1251);
 
 the above code is retrieving an article with id 1251. You can now either display the article on your web page:
 
-  printf("<h1>%s</h1>",  $article->title);
-  printf("<div>By %s</div>", $article->author);
-  printf("<div>Posted on %s</div>", $article->date);
-  printf("<p>%s</p>", $article->text);
+    printf("<h1>%s</h1>",  $article->title);
+    printf("<div>By %s</div>", $article->author);
+    printf("<div>Posted on %s</div>", $article->date);
+    printf("<p>%s</p>", $article->text);
 
 or you can make some changes, say, change its title and save it back:
 
-  $article->title("Persistent Objects in Perl made easy with Class::PObject");
-  $article->save();
+    $article->title("Persistent Objects in Perl made easy with Class::PObject");
+    $article->save();
 
 Other ways of loading objects can be by passing column values, in which case the object will retrieve all the objects from the database matching your search criteria:
 
-  my @articles = Article->load({author=>"Sherzod Ruzmetov"});
+    @articles = Article->load({author=>"Sherzod Ruzmetov"});
 
 The above code will retrieve all the articles from the database written by "Sherzod Ruzmetov". You can specify more criteria to narrow your search down:
 
-  my @articles = Article->load({author=>"Sherzod Ruzmetov", source=>"lost+found"});
+    @articles = Article->load({author=>"Sherzod Ruzmetov", source=>"lost+found"});
 
 The above will retrieve all the articles written by "Sherzod Ruzmetov" and with source "lost+found". We can of course, pass no arguments to load(), in which  case all the objects of the same type will be returned.
 
 Elements of returned @array are instances of Article objects. We can generate the list of all the articles with the following syntax:
 
-  my @articles = Article->load();
-  for my $article ( @articles ) {
-    printf("[%02d] - %s - %s - %s\n", $article->id, $article->title, $article->author, $article->date);
-  }
+    @articles = Article->load();
+    for my $article ( @articles ) {
+        printf("[%02d] - %s - %s - %s\n",
+                $article->id, $article->title, $article->author, $article->date)
+    }
 
-load() also supports second set of arguments used to do post-result filtering. Using these sets you can sort the results by any column, retrieve first n number of results, or do incremental retrievals. For example, to retrieve first 10 articles with the highest rating (assuming our Article object supports 'rating' property):
+load() also supports second set of arguments used to do post-result filtering. Using these sets you can sort the results by any column, retrieve first I<n> number of results, or do incremental retrievals. For example, to retrieve first 10 articles with the highest rating (assuming our Article object supports I<rating> column):
 
-  my @favorites = Article->load(undef, {sort=>'rating', direction=>'desc', limit=>10});
+    @favorites = Article->load(undef, {sort=>'rating', direction=>'desc', limit=>10});
 
-The above code is applying descending ordering on rating column, and limiting the search for first 10 objects. We could also do incremental retrievals. This method is best suited for web applications, where you can present "previous/next" navigation links and limit each listing to some number:
+The above code is applying descending ordering on rating column, and limiting the search for first 10 objects. We could also do incremental retrievals. This method is best suited for web applications, where you can present "previous/next" navigation links and limit each listing to some I<n> objects:
 
-  my @articles = Article->load(undef, {offset=>10, limit=>10});
+    @articles = Article->load(undef, {offset=>10, limit=>10});
 
-Above code retrieves records 10 through 20.
+Above code retrieves records 10 through 20. The result set is not required to have a promising order.
+If you need a certain order, you have to specify I<sort> argument with the name of the column you want to sort by.
+
+    @articles = Article->load(undef, {sort=>'title', offset=>10, limit=>10});
+
+By default I<sort> applies an ascending sort. You can override this behavior by defining I<direction> attribute:
+
+    @articles = Article->load(undef, {sort=>'title', direction=>'desc'});
+
+You can of course define both I<terms> and I<arguments> to load():
+
+    @articles = Article->load({source=>'lost+found'}, {offset=>10, limit=>10, sort=>'title'});
+
+If you C<load()> objects in array context as we've been doing above. In this case it returns
+array of objects regardless of the number of objects retrieved.
+
+If you call C<load()> in scalar context, regardless of the number of matching objects in the disk,
+you will always retrieve the first object in the data set. For added efficiency, Class::PObject
+will add I<limit=E<gt>1> argument even if it's missing.
+
+=head2 COUNTING OBJECTS
+
+Counting objects is very frequent task in many programs. You want to be able to display
+how many Articles are in a web site, or how many of those articles have 5 out of 5 rating.
+
+You can of course do it with a syntax similar to:
+
+    @all_articles = Article->load();
+    $count = scalar( @all_articles );
+
+But some database drivers may provide a more optimized way of retrieving this information
+using its meta-data. That's where C<count()> method comes in:
+
+    $count = Article->count();
+
+C<count()> also can accept \%terms, just like above C<load()> does as the first argument.
+Using \%terms you can define conditional way of counting objects:
+
+    $favorites_count = Article->count({rating=>'5'});
+
+The above will retrieve a count of all the Articles with rating of '5'.
 
 =head2 REMOVING OBJECTS
 
-Objects created by Class::PObject support method called "remove()" and "remove_all()". "remove()" is an object method, can used only to remove one object at a time. "remove_all()" removes all the objects of the same type, thus a little more scarier.
+PObjects support C<remove()> and C<remove_all()> methods. C<remove()> is an object method.
+It is used only to remove one object at a time. C<remove_all()> is a class method, which removes
+all the objects of the same type, thus a little more scarier.
 
-Note, that all the objects can still be removed with  "remove()" method, without any need for more explicit "remove_all()". So why two methods? On some drivers, removing all the objects at once is more efficient than removing objects one by one. Perfect example is 'mysql' driver.
+To remove an article with I<id> I<1201>, we first need to create the object of that article by loading it:
 
-To remove an article with id 1201, we first need to create the object of that article by loading it:
-
-  # we first need to load the article:
-  my $article = Article->load(1201);
-  $article->remove();
+    # we first need to load the article:
+    my $article = Article->load(1201);
+    $article->remove();
 
 remove() will return any true value indicating success, undef on failure.
 
-  $article->remove() or die "couldn't remove the article";
+    $article->remove() or die $article->errstr;
 
-remove_all(), on the other hand, is a static class method:
+C<remove_all()> is invoked like so:
 
-  Article->remove_all();
+    Article->remove_all();
 
+Notice, it's a static class method.
+
+C<remove_all()> can also be used for removing objects selectively without having to load them
+first. To do this, you can pass \%terms as the first argument to C<remove_all()>. These \%terms
+are the same as the ones we used for C<load()>:
+
+    Article->remove_all({rating=>1});
 
 =head2 DEFINING METHODS OTHER THAN ACCESSORS
 
-If you are defining the object in its own class file, you can extend the class with custom
-methods. For example, assume you have a User object, which needs to be authenticated before
-they can access certain parts of the web site. It may be a good idea to add "authenticate()" method
-into your User class, which either returns the User object if he/she is logged in properly, or returns
-undef.
+In some cases you want to be able to extend the class with custom methods.
 
-  package User;
+For example, assume you have a User object, which needs to be authenticated
+before they can access certain parts of the web site. It may be a good idea to
+add "authenticate()" method into your User class, which either returns the User
+object if he/she is logged in properly, or returns undef, meaning the user isn't
+logged in yet.
 
-  pobject {
-    columns     => ['id', 'login', 'psswd', 'email'],
-    datasource  => 'data/users'
-  };
+To do this we can simply define additional method, C<authenticate()>. Consider
+the following example:
 
-  sub authenticate {
-    my $class = shift;
-    my ($cgi, $session) = @_;
+    package User;
 
-    # if the user is already logged in, return the object:
-    if ( $session->param('_logged_in') ) {
-      return $class->load({id=>$session->param('_logged_in')});
+    pobject {
+        columns     => ['id', 'login', 'psswd', 'email'],
+        datasource  => 'data/users'
+    };
+
+    sub authenticate {
+        my $class = shift;
+        my ($cgi, $session) = @_;
+
+        # if the user is already logged in, return the object:
+        if ( $session->param('_logged_in') ) {
+            return $class->load({id=>$session->param('_logged_in')})
+        }
+
+        # if we come this far, we'll try to initialize the object with CGI parameters:
+        my $login     = $cgi->param('login')    or return 0;
+        my $password  = $cgi->param('password') or return 0;
+
+        # if we come this far, both 'login' and 'password' fields were submitted in the form:
+        my $user = $class->load({login=>$login, psswd=>$password});
+
+        # if the user could be loaded, we set the session parameter to his/her id
+        if ( defined $user ) {
+            $session->param('_logged_in', $user->id)
+        }
+        return $user
     }
-
-    # if we come this far, we'll try to initialize the object with CGI parameters:
-    my $login     = $cgi->param('login')    or return undef;
-    my $password  = $cgi->param('password') or return undef;
-
-    # if we come this far, both 'login' and 'password' fields were submitted in the form:
-    my $user = $class->load({login=>$login, psswd=>$password});
-
-    # if the user could be loadded, we set the session parameter to his/her id
-    if ( defined $user ) {
-      $session->param('_logged_in', $user->id);
-    }
-    return $user;
-  }
 
 Now, we can check if the user is logged into our web site with the following code:
 
-  use User;
+    use User;
+    my $user = User->authenticate($cgi, $session);
+    unless ( defined $user ) {
+        die "You need to login to the web site before you can access this page!"
+    }
 
-  my $user = User->authenticate($cgi, $session);
-  unless ( defined $user ) {
-    die "You need to login to the website before you can access this page!";
-  }
+    printf "<h2>Hello %s</h2>", $user->login;
 
-  printf("<h2>Hello %s</h2>", $user->login);
-
-Notice, we're passing CGI and CGI::Session objects to authenticate. You can do it differently depending
-on the tools you're using.
+Notice, we're passing L<CGI|CGI> and L<CGI::Session|CGI::Session> objects to C<authenticate()>.
+You can do it differently depending on the tools you're using.
 
 =head2 ERROR HANDLING
 
-Objects created with Class::PObject tries never to die(), and lets the programer to decide what to do on failure, (unless of course, you insult it with wrong syntax).
+I<PObjects> try never to die(), and lets the programer to decide what to do on failure,
+(unless of course, you insult it with wrong syntax).
 
-Methods that may fail are the one to do with disk access, namely, save(), load(), remove() and remove_all(). So it's advised that you check these methods' return values before you assume any success. If an error occurs, the above methods will return undef. More verbose error message will be accessible through error() method. In addition, save() method should always return the object id, either newly created, or updated.
+Methods that may fail are the ones to do with disk access, namely, C<save()>, C<load()>, C<remove()> and C<remove_all()>. So it's advised you check these methods' return values before you assume any success. If an error occurs, the above methods return undef. More verbose error message will be accessible through errstr() method. In addition, C<save()> method should always return the object id on success:
 
-  my $new_id = $article->save();
-  unless ( defined $new_id ) {
-    die "couldn't save the article: " . $article->error();
-  }
+    my $new_id = $article->save();
+    unless ( defined $new_id ) {
+        die "couldn't save the article: " . $article->errstr
+    }
 
-  Article->remove_all() or die "couldn't remove objects:" . Article->error;
+    Article->remove_all() or die "couldn't remove objects:" . Article->errstr;
 
 =head1 MISCELLANEOUS METHODS
 
-In addition to the above described methods, objects of Class::PObject also support the following
+In addition to the above described methods, I<PObjects> also support the following
 few useful ones:
 
 =over 4
 
-=item * 
+=item *
 
-columns() - returns hash-reference to all the columns of the object. Keys of the hash hold colum names,
+C<columns()> - returns hash-reference to all the columns of the object. Keys of the hash hold column names,
 and their values hold respective column values:
 
-  my $columns = $article->columns();
-  while ( my ($k, $v) = each %$columns ) {
-    printf("%s => %s\n", $k, $v);
-  }
+    my $columns = $article->columns();
+    while ( my ($k, $v) = each %$columns ) {
+        printf "%s => %s\n", $k, $v
+    }
 
 =item *
 
-dump() - dumps the object as a chunk of visually formatted data structures using standard L<Data::Dumper>.
-This method is mainly for debugging, and I believe will be present only untill stable release of the library
-is launched.
+C<dump()> - dumps the object as a chunk of visually formatted data structure using standard L<Data::Dumper|Data::Dumper>. This method is mainly useful for debugging.
 
 =item *
 
-error() - class method. Returns the error message from last I/O operations, if any. This error message
-is also available through $CLASS::ERROR global variable:
+C<errstr()> - class method. Returns the error message from last I/O operations, if any.
+This error message is also available through C<$CLASS::errstr> global variable:
 
-  $article->save() or die $article->error();
-  # or
-  $article->save() or  die $Article::ERROR;
+    $article->save() or die $article->errstr;
+    # or
+    $article->save() or  die $Article::errstr;
 
 =item *
 
-struct() - another alias for pobject(). Initial release of the library used to export struct(). Since it may clash with standar Class::Struct's struct(), I decided to make it available ONLY at request:
+C<__props()> - returns I<class properties>. Class properties are usually whatever was passed to C<pobject()> as a hashref. This information is usually useful for driver authors only.
 
-  use Class::PObject 'struct';
+=item *
 
-  struct Article => {
-    columns \@columns,
-  };
+C<__driver()> - returns either already available driver object, or creates a new object and returns it.
+Although not recommended, you can use this driver object to access driver's low-level functionality,
+as long as you know what you are doing. For available driver methods consult with specific driver
+manual, or contact the vendor.
 
 =back
 
@@ -768,46 +558,65 @@ Following are the lists of features and/or fixes that need to be applied before 
 the library ready for production environment. The list is not exhaustive. Feel free to add your
 suggestions.
 
-=head2 TEST, TEST AND TEST
-
-The library should be tested more.
-
-=head2 DRIVER SPECS
-
-Currently driver specifications are not very well documented. Need to spend more time to come up
-with more intuitive and comprehensive specification.
-
 =head2 MORE FLEXIBLE LOAD()
 
-load() will not be all we need until it supports at least simple joins. Something similar to the
+load() will not be all we need until it supports at least simple I<joins>. Something similar to the
 following may do:
 
-  @articles = Article->load(join => ['ObjectName', \%terms, \%args]);
+    @articles = Article->load(join => ['ObjectName', \%terms, \%args]);
 
 I believe it's something to be supported by object drivers, that's where it can be performed more efficiently.
 
 =head2 GLOBAL DESCTRUCTOR
 
-Class::PObjects try to cache the driver object for more extended periods than current object's scope permits them
-to. So a "global" DESTROY should be applied to prevent memory leaks or other unfavorable consequences, especially under persistent environments, such as mod_perl or GUI environments.
+PObjects try to cache the driver object for more extended periods than pobject's scope permits them
+to. So a I<global desctuctor> should be applied to prevent unfavorable behaviors, especially under persistent environments, such as mod_perl or GUI.
 
-At this point, I don't have how to implement it the best way.
+Global variables that I<may> need to be cleaned up are:
 
-=head1 DRIVER SPECS NOTES
+=over 4
 
-L<Class::PObject::Driver>
+=item B<$Class::PObject::Driver::$drivername::__O>
 
-=head1 DEVELOPER NOTES
+Where C<$drivername> is the name of the driver used. If more than one driver is used in your project,
+more of these variables may exist. This variable holds particular driver object.
 
-coming soon...
+=item B<$PObjectName::props>
+
+Holds the properties for this particular PObject named C<$PObjectName>. For example, if you created
+a pobject called I<Article>, then it's properties are stored in global variable C<$Aritlce::props>.
+
+=back
+
+For example, if our objects were using just a L<mysql|Class::PObject::Driver::mysql> driver, in our main
+application we could've done something like:
+
+    END {
+        $Class::PObject::Driver::mysql::__O = undef;
+    }
+
+=head1 DRIVER SPECIFICATIONS
+
+L<Class::PObject::Driver>, L<Class::PObject::Driver::DBI>
 
 =head1 SEE ALSO
 
-L<Class::PObject>, L<Class::PObject::Driver::mysql>,
+L<Class::PObject>,
+L<Class::PObject::Driver>,
+L<Class::PObject::Driver::DBI>,
+L<Class::PObject::Driver::csv>,
+L<Class::PObject::Driver::mysql>,
 L<Class::PObject::Driver::file>
 
 =head1 AUTHOR
 
-Sherzod Ruzmetov <sherzod@cpan.org>
+Sherzod B. Ruzmetov, E<lt>sherzod@cpan.orgE<gt>, http://author.handalak.com/
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2003 by Sherzod B. Ruzmetov.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
 
 =cut

@@ -1,88 +1,194 @@
 package Class::PObject::Driver;
 
-# $Id: Driver.pm,v 1.4 2003/06/19 21:38:30 sherzodr Exp $
+# $Id: Driver.pm,v 1.9 2003/08/23 13:15:10 sherzodr Exp $
 
 use strict;
 use Carp;
 use vars ('$VERSION');
 
-
-($VERSION) = '$Revision: 1.4 $' =~ m/Revision:\s*(\S+)/;
+$VERSION = '1.01';
 
 # Preloaded methods go here.
 
 sub new {
-  my $class = shift;
-  $class = ref($class) || $class;
+    my $class = shift;
+    $class = ref($class) || $class;
 
-  my $self = {    
-    _stash    => { },
-  };  
-  return bless($self, $class);
+    my $self = {
+        _stash    => { },
+    };
+    return bless($self, $class)
 }
 
 
 sub DESTROY { }
 
 
-sub error {
-  my ($self, $errstr) = @_;
-  my $class = ref($self) || $self;
+sub errstr {
+    my ($self, $errstr) = @_;
+    my $class = ref($self) || $self;
 
-  no strict 'refs';
-  if ( defined $errstr ) {
-    ${ "$class\::ERROR" } = $errstr;
-  }
-  return ${ "$class\::ERROR" };
+    no strict 'refs';
+    if ( defined $errstr ) {
+        ${ "$class\::errstr" } = $errstr
+    }
+    return ${ "$class\::errstr" }
 }
 
 
 
 
 sub stash {
-  my ($self, $key, $value) = @_;
+    my ($self, $key, $value) = @_;
 
-  if ( defined($key) && defined($value) ) {
-    $self->{_stash}->{$key} = $value;  
-  }
-  return $self->{_stash}->{$key};
+    if ( defined($key) && defined($value) ) {
+        $self->{_stash}->{$key} = $value
+    }
+    return $self->{_stash}->{$key}
 }
 
 
 
 
 sub dump {
-  my $self = shift;
+    my $self = shift;
 
-  require Data::Dumper;
-  my $d = new Data::Dumper([$self], [ref $self]);
-  return $d->Dump();
+    require Data::Dumper;
+    my $d = new Data::Dumper([$self], [ref $self]);
+    return $d->Dump()
 }
 
 
 sub save {
-  my $self = shift;
-  my ($object_name, $props, $columns) = @_;
+    my $self = shift;
+    my ($object_name, $props, $columns) = @_;
 
-  croak "'$object_name' object doesn't support 'save()' method";
+    croak "'$object_name' object doesn't support 'save()' method"
 }
 
 
 sub load {
-  my $self = shift;
-  my ($object_name, $props, $terms, $args) = @_;
+    my $self = shift;
+    my ($object_name, $props, $terms, $args) = @_;
 
-  croak "'$object_name' doesn't support 'load()' method";
+    croak "'$object_name' doesn't support 'load()' method"
 }
 
 
 sub remove {
-  my $self = shift;
-  my ($object_name, $props, $id) = @_;
+    my $self = shift;
+    my ($object_name, $props, $id) = @_;
 
-  croak "'$object_name' doesn't support 'remove()' method";
+    croak "'$object_name' doesn't support 'remove()' method"
 }
 
+
+
+sub remove_all {
+    my $self = shift;
+    my ($object_name, $props, $terms) = @_;
+
+    my $data_set = $self->load($object_name, $props, $terms);
+    for ( @$data_set ) {
+        $self->remove($object_name, $props, $_->{id})
+    }
+    return 1
+}
+
+
+
+
+sub count {
+    my $self = shift;
+    my ($object_name, $props, $terms) = @_;
+
+    my $data_set = $self->load($object_name, $props, $terms);
+    return scalar( @$data_set ) || 0
+}
+
+
+
+
+
+
+
+
+
+
+sub _filter_by_args {
+    my ($self, $data_set, $args) = @_;
+
+    unless ( keys %$args ) {
+        return $data_set
+    }
+
+    # if sorting column was defined
+    if ( defined $args->{'sort'} ) {
+        # default to 'asc' sorting direction if it was not specified
+        $args->{direction} ||= 'asc';
+        # and sort the data set
+        if ( $args->{direction} eq 'desc' ) {
+            $data_set = [ sort {$b->{$args->{'sort'}} cmp $a->{$args->{'sort'}} } @$data_set]
+        } else {
+            $data_set = [ sort {$a->{$args->{'sort'}} cmp $b->{$args->{'sort'}} } @$data_set]
+        }
+    }
+
+    # if 'limit' was defined
+    if ( defined $args->{limit} ) {
+        # default to 0 for 'offset' if 'offset' was not set
+        $args->{offset} ||= 0;
+        # and splice the data set
+        return [splice(@$data_set, $args->{offset}, $args->{limit})]
+    }
+
+    return $data_set
+}
+
+
+
+
+
+
+sub _matches_terms {
+    my ($self, $data, $terms) = @_;
+
+    # if no terms were defined, return true
+    unless ( keys %$terms ) {
+        return 1
+    }
+
+    # otherwise check this data set against all the terms
+    # provided. If even one of those terms are not satisfied,
+    # return false
+    while ( my ($column, $value) = each %$terms ) {
+        if ( $data->{$column} ne $value ) {
+            return 0
+        }
+    }
+
+    # if we reached this far, all the terms have been satisfied.
+    return 1
+}
+
+
+
+
+sub freeze {
+    my ($self, $data) = @_;
+
+    require Storable;
+    return Storable::freeze($data)
+}
+
+
+
+sub thaw {
+    my ($self, $datastr) = @_;
+
+    require Storable;
+    return Storable::thaw($datastr)
+}
 
 
 
@@ -98,30 +204,33 @@ __END__
 
 =head1 NAME
 
-Class::PObject::Driver - driver base class and specs for Class::PObject
+Class::PObject::Driver - Base class for Class::PObject drivers
 
 =head1 SYNOPSIS
 
   package Class::PObject::Driver::my_driver;
   use base ('Class::PObject::Driver');
 
-=head1 WARNING
+=head1 STOP!
 
-Driver specifications are in alpha state, and are subject to change in the future.
+If you just want to be able to use Class::PObject> this manual is not for you.
+This is for those willing to write I<pobject> drivers to support other database
+systems and storage devices.
+
+If you just want to be able to use Class::PObject, you should refer to its
+L<online manual|Class::PObject> instead.
 
 =head1 DESCRIPTION
-
-This manual is only for those who want to develop drivers for Class::PObject. If you
-just want to use Class::PObject with its default drivers, refer to L<Class::PObject> instead.
 
 Class::PObject::Driver is a base class for all the Object drivers.
 
 Driver is another library Class::PObject uses only when disk access is necessary.
 So you can still use Class::PObject without any valid driver, but it won't be
-persistent object now, would it? For that purpose, you are better off to go with 
-L<Class::Struct|Class::Struct>.
+persistent object now, would it?
 
-Driver's certain methods will be invoked when load(), save(), remove() and remove_all() methods 
+If you want to creating on-the-fly, non-persistent objects, you are better off with L<Class::Struct>.
+
+Driver's certain methods will be invoked when load(), save(), count(), remove() and remove_all() methods
 of Class::PObject are called. They receive certain arguments, and are required to return certain values.
 
 =head1 DRIVER SPECIFICATION
@@ -132,25 +241,48 @@ thus they all should begin with the following lines:
   package Class::PObject::Driver::my_driver;
   use base ('Class::PObject::Driver');
 
-Methods that Class::PObject::Driver defines (the ones you may want to be aware of) are:
+Exceptions may be L<DBI|DBI>-related drivers, which are better off subclassing
+L<Class::PObject::Driver::DBI> instead. L<Class::PObject::Driver::DBI> is a direct
+subclass of L<Class::PObject::Driver>.
+
+Methods that L<Class::PObject::Driver> defines are:
 
 =over 4
 
 =item stash($key [,$value])
 
 For storing data in the driver object safely. This is mostly useful for caching the return value
-of certain expensive operation that may be used over and over again. Do not try to store data specific
-to class, such as its columns, or datasource. Class::PObject will try to keep the driver object for as long
-as possible, even longer than current object's scope. so you really should stash() only the data that is less
-likely to depend on each object. Good example is stash()ing database connection:
+of certain expensive operations that may be used over and over again. Do not try to store data specific
+to individual pobject classes, such as its columns, or datasource. Class::PObject will try to
+keep the driver object for as long as possible, even longer than current pobject's scope. So you
+really should stash() only the data that is less likely to depend on each pobject. Good example is
+stash()ing database connection.
+
+For example, consider the following example:
 
   $dbh = DBI->connect(...);
-  $self->stash('dbh', $dbh);
+  $self->stash('dbh', $dbh);    # WRONG!
 
   # ... later, in some other method:
-  $dbh = $self->stash('dbh');
+  $dbh = $self->stash( 'dbh' );
 
-=item error($message)
+The above example works as expected in some cases, since most projects use the same
+database connection to access several pobjects. So it's safe to associate the database
+handle with string I<'dbh'>.
+
+However, sometimes several I<pobjects> can use several database connections. In cases like
+these the above code will not work. Because the first created $dbh will also be used
+to synchronize the second object data. Instead, you should do something like this:
+
+    $dbh = DBI->connect(...);
+    $self->stash($dsn, $dbh);   # RIGHT!
+
+    # ... later, in some other method:
+    $dbh = $self->stash( $dsn );
+
+C<$dsn> in the above example is analogous to I<Name> DBI attribute
+
+=item errstr($message)
 
 Whenever an error occurs within any of driver methods, you should always call this method
 with the error message, and return undef.
@@ -158,61 +290,110 @@ with the error message, and return undef.
 =back
 
 Class::PObject::Driver also defines C<new()> - constructor. I don't think you should
-know anything about it. You won't deal with it directly. however, all the driver methods
-will receive the driver object as the first argument.
+know anything about it. You won't deal with it directly. All the driver methods
+receive the driver object as the first argument.
 
 =head1 WHAT SHOULD DRIVER DO?
 
-Driver should provide the following methods of its own:
+Driver should inherit from either Class::PObject::Driver or L<Class::PObject::Driver::DBI>,
+and override several methods with those relevant to the specific storage method/device.
+
+All the driver methods accept at least 3 same arguments: C<$self> - driver object,
+C<$pobject_name> - name of the pobject and C<\%properties> hashref of all the properties
+as passed to C<pobject()> as the second (or first) argument in the form of a hashref.
+
+These arguments are relevant to all the driver methods, unless noted otherwise.
+
+On failure all the driver methods should pass the error message to C<errstr()> method as the
+first and the only argument, and return undef.
+
+On success they either should return a documented value (below), or boolean value whenever
+appropriate.
+
+
+=head2 REQUIRED METHODS
+
+If you are inheriting from Class::PObject::Driver, you should provide following methods
+of your own.
 
 =over 4
 
-=item save($self, $object_name, \%properties, \%columns)
+=item C<save($self, $pobject_name, \%properties, \%columns)>
 
-Whenever a user calls save() method generated by Class::PObject, that method
-calls your driver's save() method is called with three arguments. The first argument is a 
-string holding name of the persistent object. Second argument is a hashref representing all
-the properties of the object. These are usually all the arguments given to struct() in the
-form of hashref. The third argument is a hashref representing columns and their values to
-be stored.
+Whenever a user calls C<save()> method of I<pobject>, that method calls your driver's
+C<save()> method.
 
-save() method will be called when a user updates an existing object and calls save() to save the
-changes. It's your task to decide whether you need to update the object, or create a new one.
-It's also you job to create a new id for newly stored data. save() should return undef on failure,
-record id on success. If the data is newly inserted, should return newly generated id for that data.
+In addition to standard arguments, C<save()> accepts C<\%columns>, which is a
+hash of column names and their respective values to be stored into disk.
 
-=item load($class, $object_name, \%properties, [\%terms [, \%arguments]])
+It's the driver's obligation to figure whether the object should be stored, or updated.
 
-When a user asks to load an object by calling load() method, driver's load() method will be called
-by Class::PObject, with at least two arguments. First argument is the name of the object,
-second argument is the hashref of all the class properties, usually the ones passed to struct() as
-hashref. Other arguments are the ones passed to original load(), if any.
+New objects usually do not have C<id> defined. This is a clue that it is a new object,
+thus you need to create a new ID and store the object into disk. If the I<id> exists,
+it mostly means that object already should exist in the disk, and thus you need to update
+it.
 
-If it could find any objects matching \%terms and \%arguments, it should return a reference
-to a list of hash-references. Keys of the hash are column names, and values are their respective
-values.
+On success C<save()> should always return I<id> of the object stored or updated.
 
-On failure should pass the error message to error() and return undef
+=item C<load($self, $pobject_name, \%properties, [\%terms [, \%arguments]])>
 
-=item remove($self, $object_name, \%properties, $id)
+When a user asks to load an object by calling C<load()> method of I<pobject>, driver's
+C<load()> method will be called by L<Class::PObject>.
 
-Called when remove() method is called on original Class::PObject object. Class::PObject
-will call your remove() method with $object_name, \%properties and id of the object to remove.
+In addition to aforementioned 3 standard arguments, it may (or may not) receive
+C<\%terms> - terms passed to initial pobject's load() method as the first argument
+and C<\%args> - arguments passed to pobject's load() method as the second argument.
 
-Your task is to delete the record from the disk, and return any true value indicating success, undef
-on failure.
+Should return an arrayref of hashrefs, where each hashref represents a single record.
+Record may consist of multiple key/value pairs. Each key represents a I<column>.
 
-=item remove_all($class, $object_name, \%properties)
+=item C<remove($self, $object_name, \%properties, $id)>
 
-Called when remove_all() method is called on Class::PObject object. It's job is to delete all 
-the objects from the disk (scary!) and return true indicating success, or undef on failure.
+Called when remove() method is called on pobject.
+
+In addition to standard arguments, it will receive C<$id> - ID of the object that needs to be removed.
+
+Your task is to delete the record from the disk, and return any true value indicating success.
+
+=back
+
+=head2 OPTIONAL METHODS
+
+You may choose not to override the following methods if you don't want to. In that case
+Class::PObject::Driver will try to implement these functionality based on other available
+methods.
+
+So why are these methods required if their functionality can be achieved using other methods?
+Some drivers, especially RDBMS drivers, may perform these tasks much more efficiently by applying
+special optimizations to queries. In cases like these, you may want to override these methods.
+If you don't, default methods still perform as intended, but may not be as efficient.
+
+=over 4
+
+=item C<remove_all($self, $object_name, \%properties [,\%terms])>
+
+Called when remove_all() method is called on pobject. It's job is to delete all
+the objects from the disk.
+
+In addition to standard arguments, it may (or may not) receive C<\%terms>, which is a set of key/value
+pairs. All the objects matching these terms should be deleted from the disk.
+
+Should return true on success.
+
+=item C<count($self, $object_name, \%properties, [,\%terms])>
+
+Counts number of objects stored in disk.
+
+In addition to standard arguments, may (or may not) accept C<\%terms>, which is a set of key/value
+pairs. If C<\%terms> is present, only the count of objects matching these terms should be returned.
+
+On success should return a digit, representing a count of objects.
 
 =back
 
 =head1 SEE ALSO
 
-L<Class::PObject>, L<Class::PObject::Driver::mysql>,
-L<Class::PObject::Driver::file>
+L<Class::PObject::Driver::DBI>
 
 =head1 AUTHOR
 
@@ -223,6 +404,6 @@ Sherzod B. Ruzmetov E<lt>sherzodr@cpan.orgE<gt>
 Copyright 2003 by Sherzod B. Ruzmetov.
 
 This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself. 
+it under the same terms as Perl itself.
 
 =cut

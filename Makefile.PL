@@ -1,6 +1,6 @@
-#!/usr/bin/perl
 
-# $Id: Makefile.PL,v 1.5 2003/06/09 07:41:09 sherzodr Exp $
+
+# $Id: Makefile.PL,v 1.10 2003/08/23 13:15:08 sherzodr Exp $
 
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
@@ -9,7 +9,7 @@ use ExtUtils::MakeMaker;
 sub MY::postamble {
   return <<'TAG';
 realclean::
-	$(RM_RF) t/data
+	$(RM_RF) data
 TAG
 }
 
@@ -17,17 +17,13 @@ WriteMakefile(
     NAME	       	=> 'Class::PObject',
     VERSION_FROM	=> 'PObject.pm',
     PREREQ_PM	  	=> {
-        'Data::Dumper'  => 0, 
-        'File::Spec'    => 0,
-        'IO::Dir'       => 0
-      },
-	ABSTRACT	   => 'Persistent Object Framework in Per',
-	AUTHOR		   => 'Sherzod Ruzmetov <sherzodr@cpan.org>'
+	    'Storable'      => 0, 
+	    'File::Spec'    => 0,
+	    'IO::Dir'       => 0,
+	    'Test::More'    => 0,
+	    'Log::Agent'    => 0
+    },
+    ABSTRACT	    => "Framework for programming persistent objects",
+    AUTHOR	        => 'Sherzod Ruzmetov <sherzodr@cpan.org>'
 );
-
-unless ( defined $ENV{MYSQL_DB} ) {
-	print <<MSG;
-Make sure to read 'INSTALL' for details on running 'mysql' and 'csv' tests.
-MSG
-}
 
