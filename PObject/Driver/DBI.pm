@@ -1,20 +1,27 @@
 package Class::PObject::Driver::DBI;
 
-# $Id: DBI.pm,v 1.4 2003/08/23 14:31:29 sherzodr Exp $
+# $Id: DBI.pm,v 1.7 2003/08/27 00:23:37 sherzodr Exp $
 
 use strict;
 use Carp;
+use Log::Agent;
 use Class::PObject::Driver;
+use Data::Dumper;
 use vars ('$VERSION', '@ISA');
 
 @ISA = ('Class::PObject::Driver');
-$VERSION = '1.00';
+
+$VERSION = '2.00';
 
 
 sub _prepare_where_clause {
     my ($self, $terms) = @_;
 
     $terms ||= {};
+
+    unless ( ref $terms ) {
+        die join ', ', caller(0)
+    }
 
     # if no terms present, just return an empty string
     unless ( keys %$terms ) {
@@ -133,23 +140,40 @@ sub _tablename {
 
 
 
-
-
-
 sub load {
+    my $self = shift;
+    my ($object_name, $props, $id) = @_;
+
+    my $dbh = $self->dbh($object_name, $props) or return;
+    my $table = $self->_tablename($object_name, $props, $dbh) or return;
+    my ($sql, $bind_params) = $self->_prepare_select($table, {id=>$id});
+
+    my $sth = $dbh->prepare( $sql );
+    unless ( $sth->execute( @$bind_params ) ) {
+        $self->errstr($sth->errstr);
+        return undef
+    }
+
+    return $sth->fetchrow_hashref
+}
+
+
+
+
+
+
+
+sub load_ids {
     my $self = shift;
     my ($object_name, $props, $terms, $args) = @_;
 
-    if ( $terms && (ref($terms) ne 'HASH') && ($terms =~m/^\d+$/) ) {
-        $terms = {id => $_[2]}
-    }
-
-    my $dbh   = $self->dbh($object_name, $props)                  or return;
+    my $dbh   = $self->dbh($object_name, $props)              or return;
     my $table = $self->_tablename($object_name, $props, $dbh) or return;
     my ($sql, $bind_params)   = $self->_prepare_select($table, $terms, $args);
-
-    $self->_read_lock($dbh, $table) or return undef;
+    
+    
     my $sth   = $dbh->prepare( $sql );
+    
     unless( $sth->execute(@$bind_params) ) {
         $self->errstr($sth->errstr);
         return undef
@@ -159,12 +183,11 @@ sub load {
         return []
     }
 
-    my @rows = ();
+    my @data_set = ();
     while ( my $row = $sth->fetchrow_hashref() ) {
-        push @rows, $row
+        push @data_set, $row->{id}
     }
-    $self->_unlock($dbh, $table);
-    return \@rows
+    return \@data_set
 }
 
 
@@ -186,14 +209,11 @@ sub remove {
     my $table               = $self->_tablename($object_name, $props, $dbh) or return;
     my ($sql, $bind_params) = $self->_prepare_delete($table);
 
-    $self->_write_lock($dbh, $table) or return undef;
-
     my $sth                 = $dbh->prepare( $sql );
     unless ( $sth->execute($id) ) {
         $self->errstr($sth->errstr);
         return undef
     }
-    $self->_unlock($dbh, $table) or return undef;
     return $id
 }
 
@@ -209,13 +229,11 @@ sub remove_all {
     my $table               = $self->_tablename($object_name, $props, $dbh) or return;
     my ($sql, $bind_params) = $self->_prepare_delete($table, $terms);
 
-    $self->_write_lock($dbh, $table) or return undef;
     my $sth   = $dbh->prepare( $sql );
     unless ( $sth->execute(@$bind_params) ) {
         $self->errstr($sth->errstr);
         return undef
     }
-    $self->_unlock($dbh, $table) or return undef;
     return 1
 }
 
@@ -231,7 +249,6 @@ sub count {
     my ($where_clause, $bind_params)= $self->_prepare_where_clause($terms);
     my $sql                         = "SELECT COUNT(*) FROM $table " . $where_clause;
 
-    $self->_read_lock($dbh, $table) or return undef;
     my $sth                         = $dbh->prepare( $sql );
     unless ( $sth->execute( @$bind_params ) ) {
         $self->errstr($sth->errstr);
@@ -239,7 +256,6 @@ sub count {
     }
 
     my $count = $sth->fetchrow_array || 0;
-    $self->_unlock($dbh, $table) or return undef;
     return $count
 }
 

@@ -1,9 +1,12 @@
 package Class::PObject::Template;
 
-# $Id: Template.pm,v 1.8 2003/08/23 17:33:20 sherzodr Exp $
+# $Id: Template.pm,v 1.11 2003/08/27 00:23:34 sherzodr Exp $
 
 use strict;
 use Log::Agent;
+use vars ('$VERSION');
+
+$VERSION = '1.01';
 
 sub new {
     my $class = shift;
@@ -22,18 +25,9 @@ sub new {
     # object properties as represented internally by Class::PObject.
     # Whoever accesses this information from within their code will be shot
     my $self = {
-        columns     => { },   # <-- holds key/value pairs
+        columns     => { @_ },   # <-- holds key/value pairs
         _is_new     => 1
     };
-
-    # DBD::CVS seems to keep all the column names in uppercase. This is a problem,
-    # when the load() method calls new() with key/value pairs while creating an object
-    # off the disk. So we first convert the @_ to a hashref
-    my $args = { @_ };
-    # and fill in 'columns' attribute of the class with their lower-cased names:
-    while ( my ($k, $v) = each %$args ) {
-        $self->{columns}->{lc $k}   = $v
-    }
 
     # It's possible that new() was not given all the column/values. So we
     # detect the ones missing, and assign them 'undef'
@@ -91,9 +85,43 @@ sub save {
 
 
 
+
+sub fetch {
+    my $self = shift;
+    my ($terms, $args) = @_;
+    my $class = ref($self) || $self;
+
+    logtrc, "fetch(%s)", join  @_;
+
+    $terms ||= {};
+    $args  ||= {};
+    
+    my $props  = $self->__props();
+    my $driver = $self->__driver();
+
+    my $ids = $driver->load_ids($class, $props, $terms, $args);
+
+    require Class::PObject::Iterator;
+    return Class::PObject::Iterator->new($self, $ids);
+}
+
+
+
+
+
+
+
+
 sub load {
     my $self  = shift;
+    my ($terms, $args) = @_;
     my $class = ref($self) || $self;
+
+    logtrc 2, "load(%s)", join ", ", @_;
+
+    $terms ||= {};
+    $args  ||= {};
+    
 
     # if we're called in void context, why bother?
     unless ( defined wantarray() ) {
@@ -109,18 +137,28 @@ sub load {
 
     my $props       = $self->__props();
     my $driver_obj  = $self->__driver();
+    my $ids         = [];       # we first initialize an empty ID list
 
-    my $rows        = $driver_obj->load($class, $props, @_) or return;
-    unless ( scalar @$rows ) {
-        $self->errstr( $driver_obj->errstr );
+    # now, if we had a single argument, and that argument was not a HASH,
+    # we assume we received an ID
+    if ( $terms && (ref($terms)  ne 'HASH') && ($terms =~ /^\d+$/) ) {
+        $ids = [ $terms ]
+
+    } else {
+        $ids        = $driver_obj->load_ids($class, $props, $terms, $args) or return
+
+    }
+
+    unless ( scalar @$ids ) {
         return ()
     }
 
     # if called in array context, we return an array of objects:
     if (  wantarray() ) {
         my @data_set = ();
-        for ( @$rows ) {
-            my $o = $self->new(%$_);
+        for my $id ( @$ids ) {
+            my $row = $driver_obj->load($class, $props, $id) or next;
+            my $o = $self->new(%$row);
             $o->{_is_new} = 0;
             push @data_set, $o
         }
@@ -128,7 +166,8 @@ sub load {
     }
 
     # if we come this far, we're being called in scalar context
-    my $o = $self->new( %{ $rows->[0] } );
+    my $row = $driver_obj->load($class, $props, $ids->[0]) or return;
+    my $o = $self->new( %$row );
     $o->{_is_new} = 0;
     return $o
 }

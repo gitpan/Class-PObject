@@ -1,6 +1,6 @@
 package Class::PObject::Driver::DBM;
 
-# $Id: DBM.pm,v 1.3 2003/08/24 20:51:25 sherzodr Exp $
+# $Id: DBM.pm,v 1.5 2003/08/27 00:23:37 sherzodr Exp $
 
 use strict;
 use Carp;
@@ -11,7 +11,7 @@ use vars ('$VERSION', '@ISA', '$lock');
 
 @ISA = ('Class::PObject::Driver');
 
-$VERSION = '1.00';
+$VERSION = '2.00';
 
 
 sub save {
@@ -29,13 +29,10 @@ sub save {
 
 
 
-sub load {
+sub load_ids {
     my ($self, $object_name, $properties, $terms, $args) = @_;
 
     my (undef, $dbh, $unlock) = $self->dbh($object_name, $properties) or return undef;
-    if ( $terms && (ref($terms) ne 'HASH') && ($terms =~ /^\d+$/) ) {
-        return [$self->thaw( $dbh->{"!ID:" . $terms} )]
-    }
     my @data_set = ();
     my $n = 0;
     while ( my ($k, $v) = each %$dbh ) {
@@ -45,12 +42,38 @@ sub load {
         $k =~ /!ID:/ or next;
         my $data = $self->thaw( $v );
         if ( $self->_matches_terms($data, $terms) ) {
-            push @data_set, $data
+            push @data_set, keys %$args ? $data : $data->{id}
         }
     }
     $unlock->();
-    return $self->_filter_by_args(\@data_set, $args)
+    unless ( keys %$args ) {
+        return \@data_set
+    }
+    my $data = $self->_filter_by_args(\@data_set, $args);
+    return [ map { $_->{id} } @$data ]
 }
+
+
+
+
+
+
+sub load {
+    my ($self, $object_name, $props, $id) = @_;
+
+    my (undef, $dbh, $unlock) = $self->dbh($object_name, $props) or return undef;
+    return $self->thaw($dbh->{ "!ID:" . $id })
+}
+
+
+
+
+
+
+
+
+
+
 
 
 

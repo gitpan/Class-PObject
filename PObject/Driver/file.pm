@@ -1,15 +1,15 @@
 package Class::PObject::Driver::file;
 
-# $Id: file.pm,v 1.11 2003/08/23 13:15:12 sherzodr Exp $
+# $Id: file.pm,v 1.13 2003/08/27 00:23:37 sherzodr Exp $
 
 use strict;
 use File::Spec;
 use Log::Agent;
 use base ('Class::PObject::Driver');
 use Fcntl (':DEFAULT', ':flock', ':mode');
-use vars ('$f');
+use vars ('$f', '$VERSION');
 
-# defining the format of the object file. Sample would be 'obj00129.cpo'
+$VERSION = '2.00';
 $f = 'obj%05d.cpo';
 
 # called when pobject's save() method is called. Note: this is not
@@ -60,18 +60,11 @@ sub save {
 
 
 
-sub load {
+sub load_ids {
     my $self = shift;
     my ($object_name, $props, $terms, $args) = @_;
 
-    # if we're asked to load by id, let's take a shortcut instead,
-    # thus more efficient
-    if ( $terms && (ref($terms) ne 'HASH') && ($terms =~m/^\d+$/) ) {
-        logtrc 2, "loading by 'id' (%d)", $terms;
-        return $self->load_by_id($object_name, $props, $terms) or return
-    }
-
-    logtrc 2, "loading object by 'terms' and/or 'args'";
+    logtrc 2, "load_ids(%s, %s, %s, %s)", $object_name, $props, $terms, $args;
 
     # if we come this far, we're being asked to return either all the objects,
     # or by some criteria
@@ -125,7 +118,6 @@ sub load {
             logerr $self->errstr;
             return undef
         }
-
         unless(flock(FH, LOCK_SH)) {
             $self->errstr("couldn't lock '$filename': $!");
             logerr $self->errstr;
@@ -138,7 +130,11 @@ sub load {
         }
         my $data = $self->thaw($datastr);
         if ( $self->_matches_terms($data, $terms) ) {
-            push @data_set, $data;
+            if ( keys %$args ) {
+                push @data_set, $data;
+            } else {
+                push @data_set, $data->{id}
+            }
             $n++
         }
     }
@@ -146,7 +142,12 @@ sub load {
 
     # returning post-processed data set
     logtrc 2, "%d objects were found matching the 'terms'", scalar(@data_set);
-    return $self->_filter_by_args(\@data_set, $args)
+    unless ( keys %$args ) {
+        return \@data_set
+    }
+    
+    my $data_set = $self->_filter_by_args(\@data_set, $args);
+    return [ map { $_->{id} } @$data_set ]
 }
 
 
@@ -163,7 +164,7 @@ sub load {
 
 
 # load_by_id() is called only while object is to be retrieved by its id
-sub load_by_id {
+sub load {
     my ($self, $object_name, $props, $id) = @_;
 
     # determine the name of the file for this object
@@ -188,7 +189,7 @@ sub load_by_id {
         $self->errstr("object is empty");
         return undef
     }
-    return [$self->thaw($data_str)]
+    return $self->thaw($data_str)
 }
 
 

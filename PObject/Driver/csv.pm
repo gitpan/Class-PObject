@@ -1,6 +1,6 @@
 package Class::PObject::Driver::csv;
 
-# $Id: csv.pm,v 1.10 2003/08/23 10:36:44 sherzodr Exp $
+# $Id: csv.pm,v 1.13 2003/08/27 00:23:37 sherzodr Exp $
 
 use strict;
 use Carp;
@@ -10,6 +10,8 @@ use vars ('$VERSION', '@ISA');
 
 require Class::PObject::Driver::DBI;
 @ISA = ('Class::PObject::Driver::DBI');
+
+$VERSION = '2.00';
 
 
 sub save {
@@ -24,22 +26,20 @@ sub save {
 
     my $dbh   = $self->dbh($object_name, $props)                or return;
     my $table = $self->_tablename($object_name, $props, $dbh)   or return;
+    my ($sql, $bind_params);
   
     my $exists = $self->count($object_name, $props, {id=>$columns->{id}});
     if ( $exists ) {
-        my ($sql, $bind_params) = $self->_prepare_update($table, $columns, {id=>$columns->{id}});
-        my $sth = $dbh->prepare( $sql );
-        unless( $sth->execute(@$bind_params) ) {
-            $self->error("couldn't execute '$sth->{Statement}': " . $sth->errstr);
-            return undef
-        }
+        ($sql, $bind_params) = $self->_prepare_update($table, $columns, {id=>$columns->{id}});
+
     } else {
-        my ($sql, $bind_params) = $self->_prepare_insert($table, $columns);
-        my $sth = $dbh->prepare( $sql );
-        unless($sth->execute(@$bind_params)) {
-            $self->error("couldn't execute query '$sth->{Statement}': " . $sth->errstr);
-            return undef
-        }
+        ($sql, $bind_params) = $self->_prepare_insert($table, $columns);
+        
+    }
+    my $sth = $dbh->prepare( $sql );
+    unless ( $sth->execute( @$bind_params )  ) {
+        $self->errstr( "Failed query ($sth->{Statement}): " . $sth->errstr );
+        return undef
     }
     return $columns->{id}
 }
@@ -86,6 +86,7 @@ sub dbh {
         $self->error($DBI::errstr);
         return undef
     }
+    $dbh->{FetchHashKeyName} = 'NAME_lc';
     $self->stash($stashed_name, $dbh);
     $self->stash('close', 1);
     return $dbh

@@ -7,7 +7,8 @@ use DB_File;
 use Class::PObject::Driver::DBM;
 
 @ISA = ('Class::PObject::Driver::DBM');
-$VERSION = '1.00';
+
+$VERSION = '2.00';
 
 sub dbh {
     my ($self, $object_name, $props, $lock_type) = @_;

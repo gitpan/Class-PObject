@@ -1,7 +1,12 @@
 Revision history for Class::PObject
 =======================================
 
-
+2.03        Tuesday, August 26, 2003
+            
+            - More comprehensive manual
+            - Object iterator supported through fetch() method
+            - Driver specs revisited
+            
 2.00_01     Saturday, August 23, 2003
 
             - Stable drivers and driver specifications
@@ -39,4 +44,4 @@ Revision history for Class::PObject
               AXn Class::Struct::Persistent
 
 =======================================
-$Id: Changes,v 1.6 2003/08/23 10:36:22 sherzodr Exp $
+$Id: Changes,v 1.7 2003/08/27 00:23:17 sherzodr Exp $

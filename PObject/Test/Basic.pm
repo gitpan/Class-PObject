@@ -13,7 +13,7 @@ $VERSION = '1.00';
 
 
 BEGIN {
-    plan(tests => 137);
+    plan(tests => 154);
     use_ok("Class::PObject")
 }
 
@@ -21,7 +21,7 @@ BEGIN {
 sub run {
     my $self = shift;
 
-    pobject 'PO::Author' => {
+    pobject PO::Author => {
         columns     => ['id', 'name', 'url', 'email'],
         driver      => $self->{driver},
         datasource  => $self->{datasource}
@@ -29,7 +29,7 @@ sub run {
     ok(1);
 
 
-    pobject 'PO::Article' => {
+    pobject PO::Article => {
         columns     => ['id', 'title', 'author', 'content', 'rating'],
         driver      => $self->{driver},
         datasource  => $self->{datasource}
@@ -291,8 +291,6 @@ sub run {
 
 
 
-
-
     @authors = ();
     @authors = PO::Author->load(undef, {'sort'=>'id', direction=>'desc', limit=>1});
     ok(@authors == 1);
@@ -379,8 +377,37 @@ sub run {
     ok($authors[0]->name eq "Sherzod Ruzmetov");
 
 
+    ###################
+    #
+    # Checking the iterator
+    #
+    my $iterator = PO::Author->fetch(undef, {'sort'=>'name'});
+    #die $iterator->dump;
+    ok( $iterator->size == 3);
+    #die $iterator->size;
+    ok(ref $iterator eq "Class::PObject::Iterator");
+    $author1 = $iterator->next();
+    ok(ref $author1 eq "PO::Author");
+    ok( $author1->name eq "Geek");
 
+    $author2 = $iterator->next();
+    ok( ref $author2 eq "PO::Author");
+    ok( $author2->name eq "Hilola Nasyrova");
 
+    ok( $iterator->size == 1);
+
+    # trying to iterate through the list. We should
+    # have only one object left, since we already called next() two times:
+    while ( my $author = $iterator->next ) {
+        ok( $author->name eq "Sherzod Ruzmetov" );
+    }
+
+    # now we need to reset the pointers:
+    $iterator->reset();
+
+    while ( my $author = $iterator->next ) {
+        ok( ref $author eq "PO::Author");
+    }
 
 
 

@@ -1,13 +1,13 @@
 package Class::PObject;
 
-# $Id: PObject.pm,v 1.30.2.1 2003/08/26 09:25:31 sherzodr Exp $
+# $Id: PObject.pm,v 1.32 2003/08/27 00:23:17 sherzodr Exp $
 
 use strict;
 use Log::Agent;
 use vars qw($VERSION $revision);
 
-$VERSION    = '2.02';
-($revision) = '$Revision: 1.30.2.1 $' =~ m/Revision:\s*(\S+)/;
+$VERSION    = '2.03';
+($revision) = '$Revision: 1.32 $' =~ m/Revision:\s*(\S+)/;
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0, -caller=>[-display=>'($sub/$line)']);
@@ -118,6 +118,7 @@ sub pobject {
     *{ "$class\::new" }         = \&Class::PObject::Template::new;
     *{ "$class\::columns" }     = \&Class::PObject::Template::columns;
     *{ "$class\::load" }        = \&Class::PObject::Template::load;
+    *{ "$class\::fetch" }       = \&Class::PObject::Template::fetch;
     *{ "$class\::save" }        = \&Class::PObject::Template::save;
     *{ "$class\::remove" }      = \&Class::PObject::Template::remove;
     *{ "$class\::remove_all" }  = \&Class::PObject::Template::remove_all;
@@ -151,19 +152,18 @@ __END__
 
 =head1 NAME
 
-Class::PObject - Framework for programming persistent objects
+Class::PObject - Simple framework for programming persistent objects
 
 =head1 SYNOPSIS
 
-After loading the Class::PObject with F<use>, we can declare a pobject
-like so:
+After loading the Class::PObject with C<use>, we can declare a class like so
 
     pobject Person => {
         columns     => ['id', 'name', 'email'],
         datasource  => './data'
     };
 
-We can also declare the pobject in its own F<.pm> file:
+We can also declare the class in its own F<.pm> file:
 
     package Person;
     use Class::PObject;
@@ -189,8 +189,7 @@ We can access the saved Person later, make necessary changes and save back:
 We can load multiple objects as well:
 
     @people = Person->load();
-    for ( $i = 0; $i < @people; $i++ ) {
-        $person = $people[$i];
+    for $person ( @people ) {
         printf("[%02d] %s <%s>\n", $person->id, $person->name, $person->email)
     }
 
@@ -205,211 +204,363 @@ We can also seek into a specific point of the result set:
 
     @people = Person->load(undef, {offset=>10, limit=>10});
 
-
-=head1 WARNING
-
-This is 'alpha' release. I mainly want to hear some ideas, criticism and suggestions from people.
-Look at TODO section for more details.
-
 =head1 DESCRIPTION
 
-Class::PObject is a class framework for programming persistent objects. Such objects can store themselves
-into disk, and recreate themselves from the disk.
+Class::PObject is a simple class framework for programming persistent objects in Perl.
+Such objects can store themselves into disk, and recreate themselves from disk.
 
-If it is easier for you, just think of a persistent object as a single record of a relational database:
+=head1 OVERVIEW
 
-  +-----+----------------+--------+----------+
-  | id  | title          | artist | album_id |
-  +-----+----------------+--------+----------+
-  | 217 | Yagonam O'zing | Sevara |        1 |
-  +-----+----------------+--------+----------+
+Idea behind Object Persistence is to represent data as a software object. Another way of looking
+at it is, to make objects persist across processes instead of simply being destroyed
+exiting the scope.
 
-The above record of a song can be represented as a persistent object. Using Class::PObject,
-you can define a class to represent this object like so:
+=head2 DATA vs OBJECT
 
-    pobject Song => {
-        columns => ['id', 'title', 'artist', 'album_id']
-    };
+Let's discuss what in common an object can have with raw data.
 
+In a plain text database, for instance, each line could represent a single record. Different pieces of the
+record could be separated by some commonly agreed delimiter, such as a comma (,), pipe sign (|) etc.
+Unique identifier for individual records can be the line number that particular record resides on.
+For example:
 
-Now you can create an instance of a Song with the following syntax:
+    # in person.txt
+    Sherzod Ruzmetov, sherzodr[AT]cpan.org
+    Leyla Ivanitskaya, leyla[AT]handalak.com
 
-    $song = new Song(title=>"Yagonam O'zing", artist=>"Sevara", album_id=>1);
+In a BerkeleyDB (or DBM) each key/value pair of the hash can be considered a single record.
+A unique identifier for individual records can be the key of the hash. Pieces of records
+could be delimited by a commonly agreed delimiter, just like in a plain text database.
+For example:
 
-All the disk access is performed through its drivers, thus allowing your objects truly transparent database
-access. Currently supported drivers are L<mysql|Class::PObject::Driver::mysql>, L<file|Class::PObject::Driver::file> and L<csv|Class::PObject::Driver::csv>. More drivers can be added, and I believe will be.
+    # in person.db
+    217  => "Sherzod Ruzmetov|sherzodr[AT]cpan.org"
+    218  => "Leyla Ivanitskaya|leyla[AT]handalak.com"
+
+In a Relational Database System, each row of a database table is considered a single record,
+and each piece of the record has its own column in the table. A unique identifier for individual
+records can be a single column marked as primary key, or multiple columns marked so:
+
+    # in person
+    +-----+----------------+------------------------+
+    | id  | name           | email                  |
+    +-----+----------------+------------------------+
+    | 217 | Sherzod        | sherzodr[AT]cpan.org   |
+    +-----+----------------+------------------------+
+
+As you noticed, they all have something in common - they all have the same logical structure,
+a record identifier, several pieces of different records, and a container (single line, key/value pair
+or a single row). All these representations are low-level.  Why couldn't we try to
+represent them all as a software object instead and forget what they really look like in the low-level.
+
+For example, we could treat a single record from either of the above databases as an object, say
+a Person object. According to above databases, this object may have three attributes, I<id>,
+C<name> and C<email>. Sounds so natural, doesn't it?
+
+Your programs, instead of dealing with low-level disk access each time a record should be
+accessed (for either writing or reading purposes), could just play with objects. And those
+objects could deal with low-level disk access behind the scenes.
+
+=head2 WHAT ARE THE ADVANTAGES
+
+First off, data, regardless of the storage mechanism, is always accessed through the same
+programming API. So your programs can work with any database system without any change at all.
+
+Will help make a cleaner code base, because your application will never be making use of any
+low-level procedures to access the data such as running any SQL queries. Everything happens
+through objects and their supported methods.
+
+Your applications will be more modular and code base will be more compact. As a developer
+you will have less code to maintain.
+
+Your programming API will be easily accessible by 3rd parties, thus making your applications
+easily integrative as well as extensible without having to undergo time consuming, costly
+training. All they will need to read is about a page of POD manual of your related class in
+order to be able to make use of it.
+
+=head2 WHAT ARE THE DISADVANTAGES
+
+Object API may not be able to provide all the flexibility and optimization of the underlying
+database engine. To remedy this some tools provide sort of backdoors for the programmers
+to be able to interact with the underlying database engine more directly.
 
 =head1 PROGRAMMING STYLE
 
-The style of Class::PObject is very similar to that of L<Class::Struct>. Instead of exporting 'struct()', however,  Class::PObject exports 'pobject()' function. Another visual difference is the way you declare the class. In Class::PObject, each property of the class is represented as a I<column>.
+The style of Class::PObject is very similar to that of L<Class::Struct|Class::Struct>.
+Instead of exporting 'struct()', however,  Class::PObject exports C<pobject()> function.
+Another visual difference is the way you declare the class. In Class::PObject, each property
+of the class is represented as a I<column>.
 
-=head2 DEFINING OBJECTS
+Suppose, you have a database called "person" with the following records:
 
-Object can be created in several ways. You can create the object in its own F<.pm> file with the following syntax:
+    # person
+    +-----+----------------+------------------------+
+    | id  | name           | email                  |
+    +-----+----------------+------------------------+
+    | 217 | Sherzod        | sherzodr[AT]cpan.org   |
+    +-----+----------------+------------------------+
 
-    package Article;
+=head2 CLASS DECLARATIONS
+
+Let's declare a class first to represent the above data as a Persistent Object (pobject for short).
+To do this, we first load the Class::PObject with C<use>, and declare a class with C<pobject()>
+function, like so:
+
     use Class::PObject;
-    pobject {
-        columns => ['id', 'title', 'date', 'author', 'source', 'text']
+    pobject Person => {
+        columns => ["id", "name", "email"]
     };
 
-Or you can also create an in-line object - from within your programs with more explicit declaration:
+Above construct is declaring a Class representing a Person object. Person object
+has 3 attributes that are called I<columns> in the I<pobject()> declaration. These are I<id>,
+I<name> and I<email>.
 
-    pobject Article => {
-        columns => ['id', 'title', 'date', 'author', 'source', 'text']
+Above is called in-line declaration, because you are creating an inline object -
+the one that doesn't need to be in its own class file. You could declare it almost anywhere
+inside your Perl code.
+
+In-line declarations are not very useful, because you cannot access them separately
+from within another application without having to re-declare identical class several times
+in each of your programs.
+
+Another, more recommended way of declaring classes is in their own F<.pm> files. For example,
+inside a F<Person.pm> file we may put:
+
+    # lib/Person.pm
+    package Person;
+    use Class::PObject;
+    pobject Person => {
+        columns => ["id", "name", "email"]
     };
 
-Effect of the above two examples is identical - a class representing an Article.
-By default, Class::PObject will fall back to L<file|Class::PObject::Driver::file> driver if you
-do not specify any drivers. So the above Article object could also be redefined more explicitly like:
+    __END__;
 
-    pobject Article => {
-        columns => \@columns,
-        driver => 'file'
+That can be the whole content of your Perl module.
+
+Now, from any other application all we need to do is to load F<Person.pm>, and access all
+the nifty things it has to offer:
+
+    # inside our app.cgi, for example:
+    use Person;
+    ....
+
+=head2 OBJECT STORAGE
+
+From the above class declaration you may be wondering, how does it now how and where the object data
+are stored? The fact is, it doesn't. That's why by default it stores your objects in your system's temporary
+folder, wherever it may be, using default L<file|Class::PObject::Driver::file> driver. To control this
+behavior you can define I<driver> and I<datasource> attributes in addition to the above I<columns> attribute:
+
+    pobject Person => {
+        columns     => ["id", "name", "email"],
+        datasource  => './data'
     };
 
-The above examples are creating temporary objects. These are the ones stored in your system's temporary location.
-If you want more I<permanent> objects, you should also declare its datasource:
+Now, it's still using the default L<file|Class::PObject::Driver::file> driver, but storing
+the objects in your custom, F<./data> folder.
 
-    pobject Article => {
-        columns => \@columns,
+You could've also chosen to store your objects in a DBM file, or in mysql tables. That's where
+you will need to define your I<driver> attribute.
+
+To store them in L<BerkelyDB|BerkelyDB>, using L<DB_File|DB_File>
+
+    pobject Person => {
+        columns => ["id", "name", "email"],
+        driver  => 'db_file',
         datasource => './data'
     };
 
-Now, the above article object will store its objects into F<data/article/> folder.
-Since data storage is so dependant on the drivers, you should consult respective driver manuals for the details
-of data storage-related topics.
+To store them in Comma Separated text files using L<DBD::CSV|DBD::CSV>:
 
-Class declarations are tightly dependant to the type of driver being used, so we'll leave the rest of the declaration to specific drivers. In this document, we'll concentrate more on the user interface of the Class::PObject - something not dependant on the driver.
+    pobject Person => {
+        columns => ["id", "name", "email"],
+        driver  => 'csv',
+        datasource {
+            Dir => './data'
+        }
+    };
 
-=head2 CREATING NEW OBJECTS
+Or, to store them in a mysql database using L<DBD::mysql|DBD::mysql>:
 
-After you define a class using C<pobject()>, as shown above, now you can create instances of those objects.
-Objects are created with new() - constructor method. To create an instance of the above Article object, we do:
+    pobject Person => {
+        columns => ["id", "name", "email"],
+        driver  => 'mysql',
+        datasource => {
+            DSN      => "dbi:mysql:people",
+            User     => "sherzodr",
+            Password => "secret"
+        }
+    };
 
-    $article = new Article()
+So forth. For more options you should refer to respective object driver.
 
-The above syntax will create an empty Article object. We can now fill I<columns> of this object one by one:
+=head2 CREATEING NEW PERSON
 
-  $article->title("Persistent Objects with Class::PObject");
-  $article->date("Sunday, June 08, 2003"),
-  $article->author("Sherzod B. Ruzmetov");
-  $article->source("lost+found (http://author.handalak.com)");
-  $article->text("CONTENTS OF THE ARTICLE GOES HERE");
+After having the above Person class declared, we can now create an instance of a
+new Person with the following syntax:
 
-Another way of filling in objects, is by passing column values to the constructor - new():
+    $person = new Person();
 
-    $article = new Article(title  =>  "Persistent Objects with Class::PObject",
-                           date   =>  "Sunday, June 08, 2003",
-                           author =>  "Sherzod Ruzmetov",
-                           source =>  "lost+found (http://author.handalak.com" );
+Now what we need is to fill in the C<$person>'s attributes, and save it into disk
 
-    $article->text("CONTENTS OF THE ARTICLE GO HERE");
+    $person->name("Sherzod Ruzmetov");
+    $person->email("sherzodr[AT]cpan.org");
+    $person->save();
 
-Notice, above example is initializing all the properties of the object except for I<text> in the constructor,
-and initializing I<text> separately. You can use any combination to fill in your objects.
+As soon as you call C<save()> method of the C<$person>, all the records will be saved into
+the disk.
 
-=head2 STORING OBJECTS
+Notice, we didn't give any value for the I<id> column. Underlying object drivers
+will automatically generate a new ID for your newly created object, and C<save()>
+method will return this ID for you.
 
-Usually, when you create the objects and fill them with data, they are in-memory data structures, and not
-attached to disk. This means as soon as your program terminates, or your object instance exits its scope
-the data will be lost. It's when you call C<save()> method on the object when they are stored in disk.
-To store the above Article, we could just say:
+If you assign a value for I<id>, you better make sure that ID doesn't already exist. If it does,
+the old object with that ID will be replaced with this new ID. So to be safe, just don't bother
+defining any values for your ID columns.
 
-    $article->save();
+Sometimes, if you have objects with few attributes that do not require too much data,
+you may choose to both create your Person and assign its values at the same time. You can
+do so by passing your column values while creating the new person:
 
-C<save()> method returns newly created object I<id> on success, undef on failure. So you may want to check its
-return value to see if it succeeded:
-
-    $new_id = $article->save() or die $article->errstr;
-
-B<Note:> we'll talk more about handling exceptions in later sections.
+    $person = new Person(name=>"Sherzod Ruzmetov", email=>"sherzodr[AT]cpan.org");
+    $person->save();
 
 =head2 LOADING OBJECTS
 
-No point of storing stuff if you can't retrieve them when you need them. PObjects support load() method which allows you to re-initialize your objects from the disk. You can retrieve objects in many ways. The easiest, and the most efficient way of loading an object from the disk is by its id:
+PObjects support C<load()> class method, which allows you to retrieve your objects from the disk.
+You can retrieve objects in many ways. The easiest, and the most efficient way of loading an object
+from the disk is by its id:
 
-    $article = Article->load(1251);
+    $person = Person->load(217);
 
-the above code is retrieving an article with id 1251. You can now either display the article on your web page:
+Now, assuming the C<$person> could be retrieved successfully, we can access the attributes of the object like so:
 
-    printf("<h1>%s</h1>",  $article->title);
-    printf("<div>By %s</div>", $article->author);
-    printf("<div>Posted on %s</div>", $article->date);
-    printf("<p>%s</p>", $article->text);
+    printf( "Hello %s!\n", $person->name )
 
-or you can make some changes, say, change its title and save it back:
+Notice, we are using the same method names to access them as the ones we used to assign values with,
+but this time with no arguments.
 
-    $article->title("Persistent Objects in Perl made easy with Class::PObject");
-    $article->save();
+Above, instead of displaying the C<$person>'s name, we could also edit the name and save it back:
 
-Other ways of loading objects can be by passing column values, in which case the object will retrieve all the objects from the database matching your search criteria:
+    $person->name("Sherzod The Geek");
+    $person->save();
 
-    @articles = Article->load({author=>"Sherzod Ruzmetov"});
+Sometimes you may choose to load multiple objects at a time. Using the same C<load()> method,
+we could assign all the result set into an array:
 
-The above code will retrieve all the articles from the database written by "Sherzod Ruzmetov". You can specify more criteria to narrow your search down:
+    @people = Person->load();
 
-    @articles = Article->load({author=>"Sherzod Ruzmetov", source=>"lost+found"});
+Each element of the C<@people> is a C<$person> object, and you could list all of them with the following
+syntax:
 
-The above will retrieve all the articles written by "Sherzod Ruzmetov" and with source "lost+found". We can of course, pass no arguments to load(), in which  case all the objects of the same type will be returned.
-
-Elements of returned @array are instances of Article objects. We can generate the list of all the articles with the following syntax:
-
-    @articles = Article->load();
-    for my $article ( @articles ) {
-        printf("[%02d] - %s - %s - %s\n",
-                $article->id, $article->title, $article->author, $article->date)
+    for my $person ( @people ) {
+        printf("[%d] - %s <%s>\n", $person->id, $person->name, $person->email)
     }
 
-load() also supports second set of arguments used to do post-result filtering. Using these sets you can sort the results by any column, retrieve first I<n> number of results, or do incremental retrievals. For example, to retrieve first 10 articles with the highest rating (assuming our Article object supports I<rating> column):
+Notice two different contexts C<load()> was used in. If you call C<load()> in scalar context,
+regardless of the number of matching objects, you will always retrieve the first object in
+the data set. For added efficiency, Class::PObject will add I<limit=E<gt>1> argument even if
+it's missing, or exists with a different value.
 
-    @favorites = Article->load(undef, {sort=>'rating', direction=>'desc', limit=>10});
+If you called C<load()> in array context, you will always receive an array of objects, even
+if result set consist of single object.
 
-The above code is applying descending ordering on rating column, and limiting the search for first 10 objects. We could also do incremental retrievals. This method is best suited for web applications, where you can present "previous/next" navigation links and limit each listing to some I<n> objects:
+Sometimes you just want to load objects matching a specific criteria, say, you want all the people
+whose name are I<John>. You can achieve this by passing a hashref as the first argument to C<load()>:
 
-    @articles = Article->load(undef, {offset=>10, limit=>10});
+    @johns = Person->load({name=>"John"});
 
-Above code retrieves records 10 through 20. The result set is not required to have a promising order.
-If you need a certain order, you have to specify I<sort> argument with the name of the column you want to sort by.
+Sets of key/value pairs passed to C<load()> as the first argument are called I<terms>.
 
-    @articles = Article->load(undef, {sort=>'title', offset=>10, limit=>10});
+You can also apply post-result filtering to your list, such as sorting by a specific column
+in a specific order, and limit the list to I<n> number of objects and start the listing at
+object I<n> of the result set. All these attributes can be passed as the second argument to
+C<load()> in the form of a hashref and are called I<arguments> :
 
-By default I<sort> applies an ascending sort. You can override this behavior by defining I<direction> attribute:
+    @people = Person->load(undef, {sort=>'name', direction=>'desc', limit=>100});
 
-    @articles = Article->load(undef, {sort=>'title', direction=>'desc'});
+Above C<@people> holds 100 C<$person> objects, all sorted by name in descending order.
+We could use both terms and arguments at the same time and in any combination.
 
-You can of course define both I<terms> and I<arguments> to load():
+=head2 SUPPORTED ARGUMENTS OF load()
 
-    @articles = Article->load({source=>'lost+found'}, {offset=>10, limit=>10, sort=>'title'});
+Arguments are the second set of key/value pairs passed to C<load()>. Some drivers
+may look at this set as post-result-filtering.
 
-If you C<load()> objects in array context as we've been doing above. In this case it returns
-array of objects regardless of the number of objects retrieved.
+=over 4
 
-If you call C<load()> in scalar context, regardless of the number of matching objects in the disk,
-you will always retrieve the first object in the data set. For added efficiency, Class::PObject
-will add I<limit=E<gt>1> argument even if it's missing.
+=item C<sort>
+
+Defines which column the list should be sorted in.
+
+=item C<direction>
+
+Denotes direction of the sort. Possible values are I<asc> meaning ascending sort, and
+I<desc>, meaning descending sort. If C<sort> is defined, but no C<direction> is available,
+I<asc> is implied.
+
+=item C<limit>
+
+Denotes the number of objects to be returned.
+
+=item C<offset>
+
+Denotes the offset of the result set to be returned. It can be combined with C<limit>
+to retrieve a sub-set of the result set.
+
+=back
+
+=head2 INCREMENTAL LOAD
+
+C<load()> may be all you need most of the time. If your objects are of larger size,
+or if you need to operate on thousands of objects, your program may not have enough memory to
+hold them all, because C<load()> tends to literally load all the matching objects to the memory.
+
+If this is your concern, you are better off using C<fetch()> method instead. Syntax of C<fetch()>
+is almost identical to C<load()>, with an exception that it doesn't except object id
+as the first argument, for it wouldn't make sense. You can either use it without any arguments,
+or with any combination of C<\%terms> and C<\%args> as needed, just like with C<load()>.
+
+Another important difference is, it does not return any objects. It's return value is an
+instance of L<Class::PObject::Iterator|Class::PObject::Iterator>, which helps
+you to iterate through large data sets by loading them one at a time inside a C<while>-loop:
+
+    $result = Person->fetch();
+    while ( my $person = $result->next ) {
+        ...
+    }
+    # or
+    $result = Person->fetch({name=>"John"}, {limit=>100});
+    while ( my $person = $result->next ) {
+        ...
+    }
+
+For the list of methods available for C<$result> - iterator object refer to its
+L<manual|Class::PObject::Iterator>.
 
 =head2 COUNTING OBJECTS
 
-Counting objects is very frequent task in many programs. You want to be able to display
-how many Articles are in a web site, or how many of those articles have 5 out of 5 rating.
+Counting objects is very frequent task in many projects. You want to be able to display
+how many people are in your database in total, or how many "John"s are there.
 
 You can of course do it with a syntax similar to:
 
-    @all_articles = Article->load();
-    $count = scalar( @all_articles );
+    @all = People->load();
+    $count = scalar( @all );
 
-But some database drivers may provide a more optimized way of retrieving this information
-using its meta-data. That's where C<count()> method comes in:
+This however, also means you will be loading all the objects to memory at the same time.
 
-    $count = Article->count();
+Even if we could've done it using an iterator class, as discussed earlier, some database
+engines may provide a more optimized way of retrieving this information without having
+to C<load()> any objects, by consulting available meta information. That's where
+C<count()> class method comes in:
 
-C<count()> also can accept \%terms, just like above C<load()> does as the first argument.
-Using \%terms you can define conditional way of counting objects:
+    $count = Person->count();
 
-    $favorites_count = Article->count({rating=>'5'});
+C<count()> can accept \%terms, just like above C<load()> does as the first argument.
+Using \%terms you can define conditions:
 
-The above will retrieve a count of all the Articles with rating of '5'.
+    $njohns = Person->count({name=>"John"});
 
 =head2 REMOVING OBJECTS
 
@@ -417,46 +568,56 @@ PObjects support C<remove()> and C<remove_all()> methods. C<remove()> is an obje
 It is used only to remove one object at a time. C<remove_all()> is a class method, which removes
 all the objects of the same type, thus a little more scarier.
 
-To remove an article with I<id> I<1201>, we first need to create the object of that article by loading it:
+To remove a person with id 217, we first need to create an object of that Person, and only
+then call C<remove()> method:
 
-    # we first need to load the article:
-    my $article = Article->load(1201);
-    $article->remove();
+    $person = Person->load(217);
+    $person->remove();
 
-remove() will return any true value indicating success, undef on failure.
+C<remove_all()> is a static class method, and is used for removing all the objects from the
+database:
 
-    $article->remove() or die $article->errstr;
-
-C<remove_all()> is invoked like so:
-
-    Article->remove_all();
-
-Notice, it's a static class method.
+    Person->remove_all();
 
 C<remove_all()> can also be used for removing objects selectively without having to load them
-first. To do this, you can pass \%terms as the first argument to C<remove_all()>. These \%terms
+first. To do this, you can pass C<\%terms> as the first argument to C<remove_all()>. These C<\%terms>
 are the same as the ones we used for C<load()>:
 
-    Article->remove_all({rating=>1});
+    Person->remove_all({rating=>1});
+
+Notice, if we wanted  to, we still could've used a code similar to the following to remove
+all the objects:
+
+    $result = Person->fetch();
+    while ( $person = $result->next ) {
+        $person->remove
+    }
+
+However, this will require first loading the object to the memory one at a time, and then
+removing one at a time. Most of the object drivers may offer a better, efficient way of removing
+objects from the disk without having to C<load()> them. That's why you should rely on
+C<remove_all()>.
 
 =head2 DEFINING METHODS OTHER THAN ACCESSORS
 
-In some cases you want to be able to extend the class with custom methods.
+In some cases accessor methods are not all the methods your class may ever need. It may
+need some other behaviors. In cases like these, you can extend your class with your own,
+custom methods.
 
-For example, assume you have a User object, which needs to be authenticated
+For example, assume you have a "User" object, which needs to be authenticated
 before they can access certain parts of the web site. It may be a good idea to
-add "authenticate()" method into your User class, which either returns the User
+add C<authenticate()> method into your "User" class, which either returns a User
 object if he/she is logged in properly, or returns undef, meaning the user isn't
 logged in yet.
 
-To do this we can simply define additional method, C<authenticate()>. Consider
-the following example:
+To do this we can simply define additional method, C<authenticate()> inside our F<.pm> file.
+Consider the following example:
 
     package User;
 
     pobject {
         columns     => ['id', 'login', 'psswd', 'email'],
-        datasource  => 'data/users'
+        datasource  => './data'
     };
 
     sub authenticate {
@@ -464,23 +625,26 @@ the following example:
         my ($cgi, $session) = @_;
 
         # if the user is already logged in, return the object:
-        if ( $session->param('_logged_in') ) {
-            return $class->load({id=>$session->param('_logged_in')})
+        if ( my $user_id = $session->param('_logged_in') ) {
+            return $class->load( $user_id )
         }
 
-        # if we come this far, we'll try to initialize the object with CGI parameters:
+        # if we come this far, the user is not logged in yet, but still
+        # might've submitted our login form:
         my $login     = $cgi->param('login')    or return 0;
         my $password  = $cgi->param('password') or return 0;
 
-        # if we come this far, both 'login' and 'password' fields were submitted in the form:
-        my $user = $class->load({login=>$login, psswd=>$password});
+        # if we come this far, both 'login' and 'password' fields were submitted
+        # in the form. So we try to load() the matching object:
+        my $user = $class->load({login=>$login, psswd=>$password}) or return undef;
 
-        # if the user could be loaded, we set the session parameter to his/her id
-        if ( defined $user ) {
-            $session->param('_logged_in', $user->id)
-        }
+        # we store the user's Id in our session parameter, and return the user
+        # object
+        $session->param('_logged_in', $user->id);
         return $user
     }
+
+    __END__;
 
 Now, we can check if the user is logged into our web site with the following code:
 
@@ -489,7 +653,6 @@ Now, we can check if the user is logged into our web site with the following cod
     unless ( defined $user ) {
         die "You need to login to the web site before you can access this page!"
     }
-
     printf "<h2>Hello %s</h2>", $user->login;
 
 Notice, we're passing L<CGI|CGI> and L<CGI::Session|CGI::Session> objects to C<authenticate()>.
@@ -497,31 +660,32 @@ You can do it differently depending on the tools you're using.
 
 =head2 ERROR HANDLING
 
-I<PObjects> try never to die(), and lets the programer to decide what to do on failure,
+I<PObjects> try never to C<die()>, and lets the programer to decide what to do on failure,
 (unless of course, you insult it with wrong syntax).
 
-Methods that may fail are the ones to do with disk access, namely, C<save()>, C<load()>, C<remove()> and C<remove_all()>. So it's advised you check these methods' return values before you assume any success. If an error occurs, the above methods return undef. More verbose error message will be accessible through errstr() method. In addition, C<save()> method should always return the object id on success:
+Methods that may fail are the ones to do with disk access, namely, C<save()>, C<load()>, C<remove()> and C<remove_all()>. So it's advised you check these methods' return values before you assume any success.
+If an error occurs, the above methods return undef. More verbose error message will be accessible
+through errstr() method. In addition, C<save()> method should always return the object id on success:
 
-    my $new_id = $article->save();
+    my $new_id = $person->save();
     unless ( defined $new_id ) {
-        die "couldn't save the article: " . $article->errstr
+        die "save() failed: " . $person->errstr
     }
-
-    Article->remove_all() or die "couldn't remove objects:" . Article->errstr;
+    Person->remove_all() or die "remove_all() failed: " . Person->errstr;
 
 =head1 MISCELLANEOUS METHODS
 
-In addition to the above described methods, I<PObjects> also support the following
+In addition to the above described methods, pobjects support the following
 few useful ones:
 
 =over 4
 
 =item *
 
-C<columns()> - returns hash-reference to all the columns of the object. Keys of the hash hold column names,
-and their values hold respective column values:
+C<columns()> - returns hash-reference to all the columns of the object. Keys of the hash
+hold column names, and their values hold respective column values:
 
-    my $columns = $article->columns();
+    my $columns = $person->columns();
     while ( my ($k, $v) = each %$columns ) {
         printf "%s => %s\n", $k, $v
     }
@@ -535,9 +699,11 @@ C<dump()> - dumps the object as a chunk of visually formatted data structure usi
 C<errstr()> - class method. Returns the error message from last I/O operations, if any.
 This error message is also available through C<$CLASS::errstr> global variable:
 
-    $article->save() or die $article->errstr;
+    $person = new Person() or die Person->errstr;
     # or
-    $article->save() or  die $Article::errstr;
+    $person->save() or $person->errstr;
+    # or
+    $person->save() or  die $Person::errstr;
 
 =item *
 
@@ -558,18 +724,15 @@ Following are the lists of features and/or fixes that need to be applied before 
 the library ready for production environment. The list is not exhaustive. Feel free to add your
 suggestions.
 
-=head2 MORE FLEXIBLE LOAD()
+=head2 MORE FLEXIBLE load()
 
-load() will not be all we need until it supports at least simple I<joins>. Something similar to the
-following may do:
-
-    @articles = Article->load(join => ['ObjectName', \%terms, \%args]);
-
-I believe it's something to be supported by object drivers, that's where it can be performed more efficiently.
+C<load()> will not be all we need until it supports at least simple I<join>s.
+I believe it's something to be supported by object drivers, that's where it can be performed more
+efficiently.
 
 =head2 GLOBAL DESCTRUCTOR
 
-PObjects try to cache the driver object for more extended periods than pobject's scope permits them
+Pobjects try to cache the driver object for more extended periods than pobject's scope permits them
 to. So a I<global desctuctor> should be applied to prevent unfavorable behaviors, especially under persistent environments, such as mod_perl or GUI.
 
 Global variables that I<may> need to be cleaned up are:
@@ -584,7 +747,7 @@ more of these variables may exist. This variable holds particular driver object.
 =item B<$PObjectName::props>
 
 Holds the properties for this particular PObject named C<$PObjectName>. For example, if you created
-a pobject called I<Article>, then it's properties are stored in global variable C<$Aritlce::props>.
+a pobject called I<Person>, then it's properties are stored in global variable C<$Person::props>.
 
 =back
 
@@ -603,6 +766,7 @@ L<Class::PObject::Driver>, L<Class::PObject::Driver::DBI>
 
 L<Class::PObject>,
 L<Class::PObject::Driver>,
+L<Class::PObject::Driver::file>,
 L<Class::PObject::Driver::DBI>,
 L<Class::PObject::Driver::csv>,
 L<Class::PObject::Driver::mysql>,
@@ -618,5 +782,7 @@ Copyright 2003 by Sherzod B. Ruzmetov.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
+
+$Date: 2003/08/27 00:23:17 $
 
 =cut

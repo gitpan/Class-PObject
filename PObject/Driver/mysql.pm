@@ -1,13 +1,14 @@
 package Class::PObject::Driver::mysql;
 
-# $Id: mysql.pm,v 1.17 2003/08/23 14:31:29 sherzodr Exp $
+# $Id: mysql.pm,v 1.19 2003/08/27 00:23:37 sherzodr Exp $
 
 use strict;
 use Log::Agent;
-use vars qw(@ISA $VERSION);
+use vars ('@ISA', '$VERSION');
 require Class::PObject::Driver::DBI;
 
 @ISA = ('Class::PObject::Driver::DBI');
+$VERSION = '2.00';
 
 # 
 # overriding _prepare_insert() with the version that uses REPLACE
@@ -22,7 +23,6 @@ sub _prepare_insert {
         push @fields, "$k=?";
         push @bind_params, $v
     }
-
     $sql .= join(", ", @fields);
     return ($sql, \@bind_params)
 }
@@ -39,7 +39,6 @@ sub save {
     my ($sql, $bind_params) = $self->_prepare_insert($table, $columns);
 
     $self->_write_lock($dbh, $table) or return undef;
-
     my $sth                 = $dbh->prepare( $sql );
     unless ( $sth->execute(@$bind_params) ) {
         $self->errstr("couldn't save/update the record: " . $sth->errstr);
@@ -67,36 +66,31 @@ sub dbh {
         $self->errstr("'datasource' is invalid");
         return undef
     }
-
     if ( defined $props->{datasource}->{Handle} ) {
         return $props->{datasource}->{Handle}
     }
-  
     my $stashed_name = $props->{datasource}->{DSN};
     if ( defined $self->stash($stashed_name) ) {
         return $self->stash($stashed_name)
     }
-  
     if ( $datasource->{Handle} ) {
         $self->stash($stashed_name, $datasource->{Handle});
         return $datasource->{Handle}
     }
-  
     my $dsn       = $datasource->{DSN};
     my $db_user   = $datasource->{User} || $datasource->{UserName};
     my $db_pass   = $datasource->{Password};
-
     unless ( $dsn ) {
         $self->errstr("'DSN' is missing in 'datasource'");
         return undef
     }
-  
     require DBI;
     my $dbh = DBI->connect($dsn, $db_user, $db_pass, {RaiseError=>1, PrintError=>0});
     unless ( defined $dbh ) {
         $self->errstr("couldn't connect to 'DSN': " . $DBI::errstr);
         return undef
     }
+    $dbh->{FetchHashKeyName} = 'NAME_lc';
     $self->stash($stashed_name, $dbh);
     $self->stash('close', 1);
     return $dbh

@@ -1,9 +1,10 @@
 package Class::PObject::Driver;
 
-# $Id: Driver.pm,v 1.9 2003/08/23 13:15:10 sherzodr Exp $
+# $Id: Driver.pm,v 1.12 2003/08/26 20:22:34 sherzodr Exp $
 
 use strict;
 use Carp;
+use Log::Agent;
 use vars ('$VERSION');
 
 $VERSION = '1.01';
@@ -66,13 +67,22 @@ sub save {
     croak "'$object_name' object doesn't support 'save()' method"
 }
 
-
 sub load {
     my $self = shift;
-    my ($object_name, $props, $terms, $args) = @_;
+    my ($object_name, $props, $id) = @_;
 
     croak "'$object_name' doesn't support 'load()' method"
 }
+
+
+
+sub load_ids {
+    my $self = shift;
+    my ($object_name, $props, $terms, $args) = @_;
+
+    croak "'$object_name' doesn't support  'load()' method"
+}
+
 
 
 sub remove {
@@ -88,9 +98,9 @@ sub remove_all {
     my $self = shift;
     my ($object_name, $props, $terms) = @_;
 
-    my $data_set = $self->load($object_name, $props, $terms);
+    my $data_set = $self->load_ids($object_name, $props, $terms);
     for ( @$data_set ) {
-        $self->remove($object_name, $props, $_->{id})
+        $self->remove($object_name, $props, $_)
     }
     return 1
 }
@@ -102,7 +112,7 @@ sub count {
     my $self = shift;
     my ($object_name, $props, $terms) = @_;
 
-    my $data_set = $self->load($object_name, $props, $terms);
+    my $data_set = $self->load_ids($object_name, $props, $terms);
     return scalar( @$data_set ) || 0
 }
 
@@ -121,7 +131,6 @@ sub _filter_by_args {
     unless ( keys %$args ) {
         return $data_set
     }
-
     # if sorting column was defined
     if ( defined $args->{'sort'} ) {
         # default to 'asc' sorting direction if it was not specified
@@ -133,7 +142,6 @@ sub _filter_by_args {
             $data_set = [ sort {$a->{$args->{'sort'}} cmp $b->{$args->{'sort'}} } @$data_set]
         }
     }
-
     # if 'limit' was defined
     if ( defined $args->{limit} ) {
         # default to 0 for 'offset' if 'offset' was not set
@@ -141,7 +149,6 @@ sub _filter_by_args {
         # and splice the data set
         return [splice(@$data_set, $args->{offset}, $args->{limit})]
     }
-
     return $data_set
 }
 
@@ -153,11 +160,10 @@ sub _filter_by_args {
 sub _matches_terms {
     my ($self, $data, $terms) = @_;
 
-    # if no terms were defined, return true
+    logtrc 2, "_matches_terms(%s, %s, %s)", $self, $data, $terms;
     unless ( keys %$terms ) {
         return 1
     }
-
     # otherwise check this data set against all the terms
     # provided. If even one of those terms are not satisfied,
     # return false
@@ -166,8 +172,6 @@ sub _matches_terms {
             return 0
         }
     }
-
-    # if we reached this far, all the terms have been satisfied.
     return 1
 }
 
@@ -204,7 +208,7 @@ __END__
 
 =head1 NAME
 
-Class::PObject::Driver - Base class for Class::PObject drivers
+Class::PObject::Driver - Pobject driver specifications
 
 =head1 SYNOPSIS
 
@@ -213,8 +217,8 @@ Class::PObject::Driver - Base class for Class::PObject drivers
 
 =head1 STOP!
 
-If you just want to be able to use Class::PObject> this manual is not for you.
-This is for those willing to write I<pobject> drivers to support other database
+If you just want to be able to use Class::PObject this manual is not for you.
+This is for those planning to write I<pobject> drivers to support other database
 systems and storage devices.
 
 If you just want to be able to use Class::PObject, you should refer to its
@@ -226,9 +230,8 @@ Class::PObject::Driver is a base class for all the Object drivers.
 
 Driver is another library Class::PObject uses only when disk access is necessary.
 So you can still use Class::PObject without any valid driver, but it won't be
-persistent object now, would it?
-
-If you want to creating on-the-fly, non-persistent objects, you are better off with L<Class::Struct>.
+persistent object now, would it? If you want to creating on-the-fly, non-persistent
+objects, you are better off with L<Class::Struct|Class::Struct>.
 
 Driver's certain methods will be invoked when load(), save(), count(), remove() and remove_all() methods
 of Class::PObject are called. They receive certain arguments, and are required to return certain values.
@@ -242,8 +245,8 @@ thus they all should begin with the following lines:
   use base ('Class::PObject::Driver');
 
 Exceptions may be L<DBI|DBI>-related drivers, which are better off subclassing
-L<Class::PObject::Driver::DBI> instead. L<Class::PObject::Driver::DBI> is a direct
-subclass of L<Class::PObject::Driver>.
+L<Class::PObject::Driver::DBI|Class::PObject::Driver::DBI> and DBM-related drivers, 
+that are better off subclassing L<Class::PObject::Driver::DBM|Class::PObject::Driver::DBM>
 
 Methods that L<Class::PObject::Driver> defines are:
 
@@ -310,7 +313,6 @@ first and the only argument, and return undef.
 On success they either should return a documented value (below), or boolean value whenever
 appropriate.
 
-
 =head2 REQUIRED METHODS
 
 If you are inheriting from Class::PObject::Driver, you should provide following methods
@@ -335,17 +337,22 @@ it.
 
 On success C<save()> should always return I<id> of the object stored or updated.
 
-=item C<load($self, $pobject_name, \%properties, [\%terms [, \%arguments]])>
+=item C<load_ids($self, $pobject_name, \%properties, [\%terms [, \%arguments]])>
 
 When a user asks to load an object by calling C<load()> method of I<pobject>, driver's
-C<load()> method will be called by L<Class::PObject>.
+C<load_ids()> method will be called by L<Class::PObject>.
 
 In addition to aforementioned 3 standard arguments, it may (or may not) receive
 C<\%terms> - terms passed to initial pobject's load() method as the first argument
 and C<\%args> - arguments passed to pobject's load() method as the second argument.
 
-Should return an arrayref of hashrefs, where each hashref represents a single record.
-Record may consist of multiple key/value pairs. Each key represents a I<column>.
+Should return an arrayref of object ids.
+
+=item C<load($self, $object_name, \%properties, $id)>
+
+Is called to retrieve an individual object from the database. Along with standard
+arguments, it receives C<$id> - ID of the record to be retrieved. On success should
+return hash-ref of column/value pairs. 
 
 =item C<remove($self, $object_name, \%properties, $id)>
 
