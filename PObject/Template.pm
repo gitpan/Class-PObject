@@ -1,6 +1,6 @@
 package Class::PObject::Template;
 
-# Template.pm,v 1.23 2005/01/26 19:21:58 sherzodr Exp
+# Template.pm,v 1.24 2005/02/20 18:05:00 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -12,7 +12,7 @@ use overload (
     fallback=> 1
 );
 
-$VERSION = '1.92';
+$VERSION = '1.93';
 
 sub new {
     my $class = shift;
@@ -52,8 +52,9 @@ sub set_datasource {
 	$_[0]->__props()->{"datasource"} = $_[1] if defined( $_[1] );
 }
 
-
-
+sub set_driver {
+    $_[0]->__props()->{'driver'} = $_[1] if defined( $_[1] );
+}
 
 sub set {
     my $self = shift;

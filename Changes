@@ -1,6 +1,10 @@
 Revision history of Class::PObject
 =======================================
 
+2.17        Sunday, February 20, 2005
+
+            -NEW: set_driver() method defined for setting the driver
+
 2.16        Wednesday, January 26, 2005
 
             -NEW: set_datasource() method defined for setting datasource, but still experimental
@@ -101,4 +105,4 @@ Revision history of Class::PObject
               AXn Class::Struct::Persistent
 
 =======================================
-Changes,v 1.20 2005/01/26 19:21:58 sherzodr Exp
+Changes,v 1.21 2005/02/20 18:05:00 sherzodr Exp

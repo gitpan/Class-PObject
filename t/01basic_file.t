@@ -1,6 +1,6 @@
 
 
-# 01basic_file.t,v 1.9 2003/09/09 00:12:02 sherzodr Exp
+# 01basic_file.t,v 1.10 2005/02/20 18:05:00 sherzodr Exp
 
 BEGIN {
     for ( "Storable" ) {
@@ -16,7 +16,7 @@ BEGIN {
 use File::Spec;
 use Class::PObject::Test::Basic;
 
-my $t = new Class::PObject::Test::Basic(undef, File::Spec->catfile('data', 'basic', 'file'));
+my $t = new Class::PObject::Test::Basic('file', File::Spec->catfile('data', 'basic', 'file'));
 $t->run();
 
 

@@ -1,6 +1,6 @@
 package Class::PObject::Test::Basic;
 
-# Basic.pm,v 1.13 2005/01/26 19:21:58 sherzodr Exp
+# Basic.pm,v 1.14 2005/02/20 18:05:00 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -15,7 +15,7 @@ $VERSION = '1.03';
 
 
 BEGIN {
-    plan(tests => 203);
+    plan(tests => 204);
     use_ok("Class::PObject")
 }
 
@@ -36,7 +36,7 @@ sub run {
 
     pobject 'PO::Article' => {
         columns     => ['id', 'title', 'author', 'content', 'rating'],
-        driver      => $self->{driver},
+        #driver      => $self->{driver},
         serializer  => 'storable'
     };
     ok(1);
@@ -57,6 +57,7 @@ sub run {
         use Test::More;
         *pobject_init = sub {
             $_[0]->set_datasource($self->{datasource});
+            $_[0]->set_driver( $self->{driver} );
             ok(ref($_[0]) eq 'PO::Article');
         };
     }
@@ -104,6 +105,12 @@ sub run {
     #
     ok($author1->isa('Class::PObject::Template') && $author2->isa('Class::PObject::Template') &&
                                                     $article1->isa('Class::PObject::Template'));
+
+    ################
+    #
+    # Testing if driver of the object is of "Class::PObject::Driver::$driver":
+    #
+    ok($author1->__driver()->isa("Class::PObject::Driver::" . $self->{driver}));
 
     ################
     #

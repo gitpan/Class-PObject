@@ -1,14 +1,14 @@
 package Class::PObject;
 
-# PObject.pm,v 1.56 2005/01/26 19:21:58 sherzodr Exp
+# PObject.pm,v 1.57 2005/02/20 18:05:00 sherzodr Exp
 
 use strict;
 #use diagnostics;
 use Log::Agent;
 use vars ('$VERSION', '$revision');
 
-$VERSION  = '2.16';
-$revision = '1.56';
+$VERSION  = '2.17';
+$revision = '1.57';
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
@@ -79,7 +79,7 @@ sub pobject {
     # certain method names are reserved. Making sure they won't get overridden
     my @reserved_methods = qw(
         new load fetch save remove remove_all set get
-        pobject_init drop_datasource init_datasource DESTROY
+        pobject_init set_datasource set_driver drop_datasource DESTROY
     );
     for my $method ( @reserved_methods ) {
         for my $column ( @{$props->{columns}} ) {
@@ -273,12 +273,11 @@ Now, it's still using the default L<file|Class::PObject::Driver::file> driver, b
 the objects in your custom, F<./data> folder.
 
 
-NOTE: C<set_datasource()> method can also be used to set datasource. This is useful when datasource
-will not be known until later, in which case it can be set either from within C<pobject_init()> method,
+NOTE: C<set_datasource()> and C<set_driver()> methods can also be used to set datasource and object drivers respectively.
+This is useful when datasource will not be known until later, in which case it can be set either from within C<pobject_init()> method,
 or called directly as object method.
 
-You could've also chosen to store your objects in a DBM file, or in mysql tables. That's where
-you will need to define your I<driver> attribute.
+You could've also chosen to store your objects in a DBM file, or in mysql tables. That's where you will need to define your I<driver> attribute.
 
 To store them in I<DBM> files using L<DB_File|DB_File>:
 
@@ -1028,6 +1027,6 @@ Copyright (c) 2003 Sherzod B. Ruzmetov. All rights reserved.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-2005/01/26 19:21:58
+2005/02/20 18:05:00
 
 =cut

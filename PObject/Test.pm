@@ -1,6 +1,6 @@
 package Class::PObject::Test;
 
-# Test.pm,v 1.4 2003/09/09 00:11:53 sherzodr Exp
+# Test.pm,v 1.5 2005/02/20 18:05:00 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -8,18 +8,21 @@ use Carp;
 use Class::PObject;
 use vars ('$VERSION');
 
-$VERSION = '1.01';
+$VERSION = '1.02';
 
 sub new {
     my $class = shift;
     $class = ref($class) || $class;
 
-    my $self = {
-        driver      => $_[0] || 'file',
-        datasource  => $_[1] || 'data'
-    };
+    my $self = bless {
+        driver      => $_[0], # || 'file',
+        datasource  => $_[1] # || 'data'
+    }, $class;
 
-    return bless ($self, $class)
+    unless ( $self->{driver} && $self->{datasource} ) {
+        croak "'driver' and 'datasource' are not set in the test script";
+    }
+    return $self;
 }
 
 
