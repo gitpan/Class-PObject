@@ -1,14 +1,14 @@
 package Class::PObject;
 
-# PObject.pm,v 1.50 2003/11/07 04:46:47 sherzodr Exp
+# PObject.pm,v 1.51 2003/11/07 05:29:55 sherzodr Exp
 
 use strict;
 #use diagnostics;
 use Log::Agent;
 use vars ('$VERSION', '$revision');
 
-$VERSION  = '2.11';
-$revision = '1.50';
+$VERSION  = '2.12';
+$revision = '1.51';
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
@@ -971,6 +971,17 @@ to DBM
 You can learn more about column type specs from L<Class::PObject::Type|Class::PObject::Type>,
 which is also a base class of all the types.
 
+=head1 KNOWN BUGS AND ISSUES
+
+=head2 ithreads
+
+On platforms where Perl was built I<ithreads> enabled, several tests during I<make test> may
+fail. Although these particular failures are found to be related to a bug in L<Test::Builder|Test::Builder>, 
+it's still not clear whether Class::PObject is fully compatible with I<ithreads> or not. Volunteers
+are welcome to help us find out.
+
+For more details of these problems refer to http://rt.cpan.org/NoAuth/Bug.html?id=4218
+
 =head1 SEE ALSO
 
 http://poop.sourceforge.net/, although little dated, provides brief overview
@@ -988,6 +999,6 @@ Copyright (c) 2003 Sherzod B. Ruzmetov. All rights reserved.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-2003/11/07 04:46:47
+2003/11/07 05:29:55
 
 =cut

@@ -1,6 +1,12 @@
 Revision history of Class::PObject
 =======================================
 
+2.12        Friday, November 07, 2003
+
+            - FIX: more optimized datasource initialization
+            - NEW: New section in documentation called "KNOWN BUGS AND ISSUES"
+
+
 2.10        Thursday, November 06, 2003
 
             - FIX: 'freezethaw' serializer didn't work on empty objects
@@ -80,4 +86,4 @@ Revision history of Class::PObject
               AXn Class::Struct::Persistent
 
 =======================================
-Changes,v 1.16 2003/11/07 00:28:24 sherzodr Exp
+Changes,v 1.17 2003/11/07 05:31:28 sherzodr Exp
