@@ -1,57 +1,63 @@
 package Class::PObject::Driver::csv;
 
-# $Id: csv.pm,v 1.4 2003/06/09 09:08:38 sherzodr Exp $
+# $Id: csv.pm,v 1.5 2003/06/20 00:04:41 sherzodr Exp $
 
 use strict;
 use base ('Class::PObject::Driver');
 use Carp;
 use File::Spec;
 
+
+
 # Preloaded methods go here.
 sub save {
   my $self = shift;
   my ($object_name, $props, $columns) = @_;
 
+  # if an id doesn't already exist, we should create one.
+  # refer to _generate_id() for the details
   unless ( defined $columns->{id} ) {
     $columns->{id} = $self->_generate_id($object_name, $props);
   }
 
-  my $dbh = $self->dbh($object_name, $props) or return;
-  my $table = $self->_get_tablename($object_name, $props) or return;
+  my $dbh   = $self->dbh($object_name, $props)                  or return;
+  my $table = $self->_get_tablename($object_name, $props, $dbh) or return;
   
+  # we should know generate SQL statement for inserting/upgrating the object
+  # record
   my ($set_str, @set, @holder);
 
+  # to do it, we iterate over each column to be stored
   while ( my($k, $v) = each %$columns ) {
-    push @set, "$k=?";
+    # build @set and @holder arrays - the easiest and secure way
+    # of creating SQL statement dynamically
+    push @set,    "$k=?";
     push @holder, $v;
   }
   
-  #die Dumper([\@set, \@holder]);
-
-  $set_str = "SET " . join(', ', @set);
-  #die $set_str;
-
   # check if this id already exists:
   my $exists = $dbh->selectrow_array(qq|SELECT * FROM $table WHERE id=?|, undef, $columns->{id});
   if ( $exists ) {
-    my $sth = $dbh->prepare(qq|UPDATE $table $set_str WHERE id=?|);
-    #die $sth->{Statement};
+    # if it does, we should update the existing record:
+    my $sql_str = sprintf("UPDATE %s SET %s WHERE id=?", $table, join (", ", @set));
+    my $sth = $dbh->prepare($sql_str);
     unless($sth->execute(@holder, $columns->{id})) {
       $self->error("couldn't execute '$sth->{Statement}': " . $sth->errstr);
       return undef;
     }
   } else {
+    # if it doesn't, insert it as a new record
     my (@cols, @values);
     while ( my ($k, $v) = each %$columns ) {
-      push @cols, $k;
+      push @cols,   $k;
       push @values, '?';
-    }    
-    my $sth = $dbh->prepare(sprintf(qq|INSERT INTO $table (%s) VALUES(%s)|, join(', ', @cols), join(', ', @values)));
-    #die $sth->{Statement};
+    }
+    my $sql_str = sprintf("INSERT INTO %s (%s) VALUES(%s)", $table, join(', ', @cols), join(', ', @values));
+    my $sth = $dbh->prepare($sql_str);
     unless($sth->execute(@holder)) {
       $self->error("couldn't execute query '$sth->{Statement}': " . $sth->errstr);
       return undef;
-    }    
+    }
   }
   return $columns->{id};
 }
@@ -65,10 +71,9 @@ sub save {
 sub _generate_id {
   my ($self, $object_name, $props) = @_;
 
-  my $dbh = $self->dbh($object_name, $props) or return;
-  my $table = $self->_get_tablename($object_name, $props) or return;
+  my $dbh   = $self->dbh($object_name, $props)                  or return;
+  my $table = $self->_get_tablename($object_name, $props, $dbh) or return;
 
-  # figuring out the 'last' id:
   my $last_id = $dbh->selectrow_array(qq|SELECT id FROM $table ORDER BY id DESC LIMIT 1|);
   return ++$last_id;
 }
@@ -88,47 +93,45 @@ sub load {
   }
 
   $args ||= { };
-
-  #die Dumper($terms);
-  
   my (@where, @holder, $where_str, $order_str, $limit_str);
+  $order_str = $limit_str = $where_str = "";
+
+  # creating key/values for 'WHERE' clause
   while ( my($k, $v) = each %$terms ) {
     push @where, "$k=?";
-    push @holder, $v;
+    push @holder, $v
+  }  
+  if ( @where ) {
+    $where_str = "WHERE " . join(" AND ", @where)
   }
 
+  # creating an 'ORDER BY' clause
   if ( defined $args->{'sort'} ) {
     $args->{direction} ||= 'asc';
-    $order_str = sprintf("OREDER BY %s %s", $args->{'sort'}, $args->{direction});  
-  } else {
-    $order_str = "";
+    $order_str = sprintf("ORDER BY %s %s", $args->{'sort'}, $args->{direction})
   }
 
+  # creating 'LIMIT' clause
   if ( defined $args->{limit} ) {
     $args->{offset} ||= 0;
     $limit_str = sprintf("LIMIT %d, %d", $args->{offset}, $args->{limit});
-  } else {
-    $limit_str = "";
   }
 
-  if ( @where ) {
-    $where_str = "WHERE " . join(" AND ", @where);
-  } else {
-    $where_str = "";
-  }
-
-  my $dbh   = $self->dbh($object_name, $props) or return;
-  my $table = $self->_get_tablename($object_name, $props) or return;
+  my $dbh   = $self->dbh($object_name, $props)                  or return;
+  my $table = $self->_get_tablename($object_name, $props, $dbh) or return;
+  
   my $sth   = $dbh->prepare(qq|SELECT * FROM $table $where_str $order_str $limit_str|);    
-  $sth->execute(@holder);
+  unless($sth->execute(@holder)) {
+    $self->error($sth->errstr);
+    return undef
+  }
   unless ( $sth->rows ) {
-    $self->error("No objects returned");
-    return undef;
+    return []
   }
 
   my @rows = ();
   while ( my $row = $sth->fetchrow_hashref() ) {
-    push @rows, $row;
+    push @rows, $row
   }
   return \@rows;
 }
@@ -139,58 +142,58 @@ sub remove {
   my ($object_name, $props, $id)  = @_;
 
   unless ( defined $id ) {
-    return;
+    $self->error("remove(): don't know what to remove. 'id' is missing");
+    return undef;
   }
 
   my $dbh = $self->dbh($object_name, $props) or return;
-  my $table = $self->_get_tablename($object_name, $props) or return;
-  $dbh->do(qq|DELETE FROM $table WHERE id=?|, undef, $id);
+  my $table = $self->_get_tablename($object_name, $props, $dbh) or return;
+  my $sth = $dbh->prepare(qq|DELETE FROM $table WHERE id=?|);
+  unless ( $sth->execute($id) ) {
+    $self->error($sth->errstr);
+    return undef;
+  }
+  return $id;
 }
 
 
 sub remove_all {
-  my $self = shift;
+  my $self  = shift;
   my ($object_name, $props) = @_;
 
-  my $dbh = $self->dbh($object_name, $props) or return undef;
-  my $table = $self->_get_tablename($object_name, $props);
-  return $dbh->do(qq|DELETE FROM $table|);
+  my $dbh   = $self->dbh($object_name, $props)                  or return;
+  my $table = $self->_get_tablename($object_name, $props, $dbh) or return;
+  my $sth   = $dbh->prepare(qq|DELETE FROM $table|);
+  unless ( $sth->execute() ) {
+    $self->error($sth->errstr);
+    return undef;
+  }
+  return 1;
 }
 
 
 
 sub dbh {
-  my ($self, $object_name, $props) = @_;
+  my $self = shift;
+  my ($object_name, $props) = @_;
 
-  if ( defined $self->stash('dbh') ) {
-    return $self->stash('dbh');
+  my $dir          = $self->_get_dirname($props) or return;
+  my $stashed_name = "dbh:$dir";
+
+  if ( defined $self->stash($stashed_name) ) {
+    return $self->stash($stashed_name);
   }
   
-  require DBI;  
-  my $dir = $self->_get_dirname($props);
+  require DBI;
+  
   my $dbh = DBI->connect("DBI:CSV:f_dir=$dir");
   unless ( defined $dbh ) {
     $self->error("cannot connect: $DBI::errstr");
     return undef;
   }
-  my $table = $self->_get_tablename($object_name, $props);
-  unless ( -e File::Spec->catfile($dir, $table) ) {
-    my $columns = $props->{columns};    
-    my $sql_str = "CREATE TABLE $table (";
-    for my $colname ( @$columns ) {
-      $sql_str .= "$colname BLOB, ";
-    }
-    $sql_str .= ")";
-    my $sth = $dbh->prepare($sql_str);
-    unless($sth->execute()) {
-      $self->error("couldn't execute statement '$sth->{Statement}: " . $sth->errstr);
-      return undef;
-    }
-    #die $sql_str;
-  }
-  $self->stash('dbh', $dbh);
+  $self->stash($stashed_name, $dbh);
   $self->stash('close', 1);
-  return $self->dbh($object_name, $props);
+  return $dbh;
 }
 
 
@@ -198,21 +201,16 @@ sub dbh {
 
 
 
-sub DESTROY {
-  my $self = shift;
-  
-  if ( $self->stash('close') && defined($self->stash('dbh')) ) {    
-    my $dbh = $self->stash('dbh');
-    $dbh->disconnect();
-  }
-}
+
+
+sub DESTROY { }
 
 
 
 
 sub _get_dirname {
-  my $self = shift;
-  my $props = shift;
+  my $self    = shift;
+  my ($props) = @_;
   
   my $datasource = $props->{datasource} || {};
   my $dir        = $datasource->{Dir};
@@ -233,16 +231,34 @@ sub _get_dirname {
 
 
 sub _get_tablename {
-  my ($self, $object_name, $props) = @_;
+  my ($self, $object_name, $props, $dbh) = @_;
 
-  my $datasource = $props->{datasource} || {};
-  my $table  = $datasource->{Table};
+  my $table = undef;
+  if ( $props->{Table} ) {
+    $table = $props->{Table}
+    
+  } else {
+    $object_name =~ s/\W+/_/g;
+    $table       = lc($object_name)
 
-  unless ( defined $table ) {
-    $table = $object_name;
-    $table =~ s/\W+/_/g;    
   }
-  return lc($table);
+
+  my $dir   = $self->_get_dirname($props) or return;
+  if ( -e File::Spec->catfile($dir, $table) ) {
+    return $table;
+  }
+  
+  my @sets    = ();
+  for my $colname ( @{$props->{columns}} ) {
+    push @sets, "$colname BLOB";
+  }
+  my $sql_str = sprintf("CREATE TABLE %s (%s)", $table, join (", ", @sets));
+  my $sth = $dbh->prepare($sql_str);
+  unless($sth->execute()) {
+    $self->error($sth->{Statement} . ': ' . $sth->errstr);
+    return undef;
+  }
+  return $table;
 }
 
 

@@ -3,7 +3,7 @@
 
 #########################
 
-# $Id: 03mysql.t,v 1.5 2003/06/09 09:08:41 sherzodr Exp $
+# $Id: 03mysql.t,v 1.6 2003/06/20 06:28:10 sherzodr Exp $
 
 use strict;
 use Test;
@@ -46,9 +46,10 @@ unless(create_tables($dbh)) {
 }
 
 
-plan(tests=>25);
+plan(tests=>26);
 
 use Class::PObject;
+use Data::Dumper;
 
 ok(1);
 
@@ -156,7 +157,6 @@ ok($p4);
 
 ok($p4->remove);
 
-
 # destroying object
 undef($p4);
 
@@ -174,7 +174,9 @@ ok($p5 ? 0 : 1);
 
 
 
-
+# trying to load the object again, but in array context
+my @p5 = Person->load($new_id);
+ok(@p5 ? 0 : 1);
 
 
 

@@ -1,18 +1,19 @@
 package Class::PObject::Driver::mysql;
 
-# $Id: mysql.pm,v 1.5 2003/06/09 09:08:38 sherzodr Exp $
+# $Id: mysql.pm,v 1.6 2003/06/20 06:27:30 sherzodr Exp $
 
 use strict;
 use base ('Class::PObject::Driver');
 use Carp;
 
 # Preloaded methods go here.
+
+
 sub save {
   my ($self, $object_name, $props, $columns) = @_;
 
-  my $dbh = $self->dbh($object_name, $props) or croak "dbh() couldn't be created";  
-
-  #die Dumper($columns);
+  my $dbh = $self->dbh($object_name, $props) or return;
+  
   my ($set_str, $table, @set, @holder);
   $table = $self->_get_tablename($object_name, $props) or return;
 
@@ -20,12 +21,12 @@ sub save {
     push @set, "$k=?";
     push @holder, $v;
   }
-  
-  #die Dumper(\@set);
-  $set_str = "SET " . join(', ', @set);
-  my $sth = $dbh->prepare(qq|REPLACE INTO $table $set_str|);
-  #die $sth->{Statement};
-  $sth->execute(@holder);  
+  my $sql_str = sprintf("REPLACE INTO %s SET %s", $table, join (', ', @set));
+  my $sth     = $dbh->prepare($sql_str);
+  unless ($sth->execute(@holder) ) {
+    $self->error("couldn't save/update the record: " . $sth->errstr);
+    return undef;
+  }
   return $dbh->{mysql_insertid};
 }
 
@@ -45,6 +46,8 @@ sub load {
   $args ||= { };
   
   my (@where, @holder, $where_str, $order_str, $limit_str);
+  # initializing the string to prevent 'undefined' warnings from Perl
+  $where_str = $order_str = $limit_str = "";
   while ( my($k, $v) = each %$terms ) {
     push @where, "$k=?";
     push @holder, $v;
@@ -53,36 +56,32 @@ sub load {
   if ( defined $args->{'sort'} ) {
     $args->{direction} ||= 'asc';
     $order_str = sprintf("ORDER BY %s %s", $args->{'sort'}, $args->{direction});  
-  } else {
-    $order_str = "";
   }
 
   if ( defined $args->{limit} ) {
     $args->{offset} ||= 0;
     $limit_str = sprintf("LIMIT %d, %d", $args->{offset}, $args->{limit});
-  } else {
-    $limit_str = "";
   }
 
   if ( @where ) {
     $where_str = "WHERE " . join(" AND ", @where);
-  } else {
-    $where_str = "";
   }
 
-  my $dbh   = $self->dbh($object_name, $props);
-  my $table = $self->_get_tablename($object_name, $props) or return;
+  my $dbh   = $self->dbh($object_name, $props)            or return undef;
+  my $table = $self->_get_tablename($object_name, $props) or return undef;
   my $sth   = $dbh->prepare(qq|SELECT * FROM $table $where_str $order_str $limit_str|);  
   unless($sth->execute(@holder)) {
-    die $sth->errstr;
-  }  
+    $self->error($sth->errstr);
+    return undef;
+  }
+  unless ( $sth->rows ) {
+    return [];
+  }
   my @rows = ();
   while ( my $row = $sth->fetchrow_hashref() ) {
     push @rows, $row;
   }
-  unless ( scalar @rows ) {
-    return undef;
-  }
+  
   return \@rows;
 }
 
@@ -109,35 +108,51 @@ sub remove_all {
 
 
 
+
+
 sub dbh {
   my ($self, $object_name, $props) = @_;
 
-  if ( defined $self->stash('dbh') ) {
-    return $self->stash('dbh');
-  }  
   # checking if datasource provides adequate information to us
   my $datasource = $props->{datasource};
-  unless ( ref($datasource) ) {    
+  unless ( ref($datasource) eq 'HASH' ) {    
     $self->error("'datasource' is invalid");
     return undef;
   }
+  
+  # Unforunately, the following line will not work as intended if the user
+  # passed 'Handle' datasource attribute. It is a bug, so should be fixed
+  # some other way
+  #my $stashed_name = sprintf("DSN:%s", $props->{datasource}->{DSN});
+  my $stashed_name = 'dbh';
 
+  if ( defined $self->stash($stashed_name) ) {
+    return $self->stash($stashed_name);
+  }
+  
   if ( $datasource->{Handle} ) {
-    $self->stash('dbh', $datasource->{Handle});
+    $self->stash($stashed_name, $datasource->{Handle});
     return $datasource->{Handle};
   }
   
-  my $dsn       = $datasource->{DSN} or die;
+  my $dsn       = $datasource->{DSN};
   my $db_user   = $datasource->{UserName};
   my $db_pass   = $datasource->{Password}; 
 
-  #$self->stash('Table', $db_table);
-
+  unless ( $dsn ) {
+    $self->error("'DSN' is missin in 'datasource'");
+    return undef;
+  }
+  
   require DBI;
   my $dbh = DBI->connect($dsn, $db_user, $db_pass, {RaiseError=>0, PrintError=>0});
-  $self->stash('dbh', $dbh);
+  unless ( defined $dbh ) {
+    $self->error("couldn't connect to 'DSN': " . $DBI::errstr);
+    return undef;
+  }
+  $self->stash($stashed_name, $dbh);
   $self->stash('close', 1);
-  return $self->dbh($object_name, $props);
+  return $dbh;
 }
 
 
@@ -157,13 +172,13 @@ sub DESTROY {
 
 
 
+# 'figures' the name of the table this object should be stored in
 sub _get_tablename {
   my ($self, $object_name, $props) = @_;
 
   my $datasource = $props->{datasource};
   unless ( defined $datasource ) {
-    $self->error("'datasource' is empty");
-    return undef;
+    croak "'datasource' is empty";
   }
   my $table = $datasource->{Table};
   unless ( $table ) {

@@ -1,34 +1,36 @@
 package Class::PObject::Driver;
 
-# $Id: Driver.pm,v 1.3 2003/06/08 23:22:17 sherzodr Exp $
+# $Id: Driver.pm,v 1.4 2003/06/19 21:38:30 sherzodr Exp $
 
 use strict;
 use Carp;
 use vars ('$VERSION');
 
-($VERSION) = '$Revision: 1.3 $' =~ m/Revision:\s*(\S+)/;
+
+($VERSION) = '$Revision: 1.4 $' =~ m/Revision:\s*(\S+)/;
 
 # Preloaded methods go here.
+
 sub new {
   my $class = shift;
   $class = ref($class) || $class;
 
   my $self = {    
-    _stash       => { },
-  };
-  
+    _stash    => { },
+  };  
   return bless($self, $class);
 }
 
+
+sub DESTROY { }
 
 
 sub error {
   my ($self, $errstr) = @_;
   my $class = ref($self) || $self;
-  
+
   no strict 'refs';
   if ( defined $errstr ) {
-    #croak $errstr;
     ${ "$class\::ERROR" } = $errstr;
   }
   return ${ "$class\::ERROR" };
@@ -82,15 +84,8 @@ sub remove {
 }
 
 
-sub remove_all {
-  my $self = shift;
-  my ($object_name, $props) = @_;
-
-  croak "'$object_name' doesn't support 'remove_all()' method";
-}
 
 
-sub DESTROY { }
 
 
 

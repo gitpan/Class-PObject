@@ -1,20 +1,28 @@
 Revision history for Perl extension Class::PObject
 
+1.8		Friday, June 20, 2003
+		- 'csv' driver fixed, and should be stable.
+		- empty object in array context used to load an array with a single
+		  undefined value. Fixed in this release
+		- drivers no longed need to provide remove_all() method. If missing
+			Class::PObject will take care of them using remove()
+		- 'file' driver now works undef taint mode
+
 1.7		Monday, June 09, 2003
 		- in cases no matches can be loaded, load() of the drivers' still
 		  used to return a defined array with a single undefined element.
 			Fixed in 1.7
 
 1.5		Monday, June 09, 2003
-	-	columns() method added.
-	- struct() is documented
+		-	columns() method added.
+		- struct() is documented
 
 1.3		Sunday, June 08, 2003
-	-	first public release, alpha
+		-	first public release, alpha
 
 0.01  Tuesday, June 03 2003
-	- original version; created by h2xs 1.21 with options
+		- original version; created by h2xs 1.21 with options
 		-AXn Class::Struct::Persistent
 
 
-$Id: Changes,v 1.4 2003/06/09 09:14:32 sherzodr Exp $
+$Id: Changes,v 1.5 2003/06/20 06:34:39 sherzodr Exp $

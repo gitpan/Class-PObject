@@ -3,7 +3,7 @@
 
 #########################
 
-# $Id: 02csv.t,v 1.4 2003/06/09 07:41:43 sherzodr Exp $
+# $Id: 02csv.t,v 1.5 2003/06/20 06:28:10 sherzodr Exp $
 
 use strict;
 use Test;
@@ -16,7 +16,7 @@ for ( 'DBI', "DBD::CSV" ) {
   }
 }
 
-plan( tests => 25 );
+plan( tests => 26 );
 
 use Class::PObject;
 ok(1);
@@ -143,7 +143,8 @@ my $p5 = Person->load($new_id);
 ok($p5 ? 0 : 1);
 
 
-
+my @p5 =  Person->load($new_id);
+ok(@p5 ? 0 : 1);
 
 
 

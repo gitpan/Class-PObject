@@ -1,28 +1,28 @@
 package Class::PObject;
 
-# $Id: PObject.pm,v 1.7 2003/06/09 09:14:32 sherzodr Exp $
+# $Id: PObject.pm,v 1.10 2003/06/20 06:34:39 sherzodr Exp $
 
 use strict;
 use Carp;
-#use diagnostics;
+use diagnostics;
 use vars ('$VERSION', '@ISA', '@EXPORT', '@EXPORT_OK');
 require Exporter;
 
-@ISA    = ('Exporter');
-@EXPORT = ('pobject');
-@EXPORT_OK = ('struct');
+@ISA        = ('Exporter');
+@EXPORT     = ('pobject');
+@EXPORT_OK  = ('struct');
 
-($VERSION) = '$Revision: 1.7 $' =~ m/Revision:\s*(\S+)/;
+($VERSION)  = '1.8';
 
 # Preloaded methods go here.
 
 
-*pobject = \&struct;
+*pobject    = \&struct;
 
 sub struct {
   my ($class, $props);
 
-  # Are we given explicit class name to be created in?
+  # are we given explicit class name to be created in?
   if ( @_ == 2 ) {
     ($class, $props) = @_;
   }
@@ -36,20 +36,42 @@ sub struct {
     croak "Usage error";
   }
 
-  # creating virtual class
+  # should we make sure that current package is not 'main'?
+  if ( $class eq 'main' ) {
+    croak "class 'main' cannot be the class name";
+  }
+
+  # creating the class virtually. Note, that it is different
+  # then the way Class::Struct works.
   {
     no strict 'refs';
-    # caching the properties (everything passes to struct())
-    unless ( defined ${ "$class\::props" } ) {
-      $props->{driver} ||= 'file';
-      ${ "$class\::props" } = $props;
+    # if the properties have already been created, it means the user
+    # tried to create the class with the same name twice. He should be shot!
+    if ( ${ "$class\::props" } ) {
+      croak "are you trying to create the same class two times?";
     }
 
-    # installing constructor out of template:
-    *{ "$class\::new" } = \&Class::PObject::Template::new;
+    # we should have some columns
+    unless ( @{$props->{columns}} ) {
+      croak "class $class should have columns!";
+    }
 
-    # returns hashref of all the colum/values:
-    * { "$class\::columns" } = sub { return $_[0]->{columns} };
+    # one of the columns should be 'id'. I believe this is a limitation,
+    # which should be eliminated in next release
+    my $has_id = 0;
+    for ( @{$props->{columns}} ) {
+      $has_id = $_ eq 'id' and last;
+    }
+    unless ( $has_id ) {
+      croak "'id' column is required! Read 'TODO' section of the manual for more details";
+    }
+     
+    # if no driver was specifiied, default driver to be used is 'file'
+    $props->{driver} ||= 'file';
+    
+    ${ "$class\::props" }   = $props;
+    *{ "$class\::new" }     = \&Class::PObject::Template::new;
+    *{ "$class\::columns" } = sub { return $_[0]->{columns} };
 
     # installing 'properties' accessor method. It returned all the properties
     # if the class (everything passed to struct()
@@ -63,26 +85,15 @@ sub struct {
       # if the method with the same name is already present in
       # caller's package, we should let them override us
       $class->can($colname) && next;
-
       *{ "$class\::$colname" } = sub {
           $_[1] ? ($_[0]->{columns}->{$colname} = $_[1]) :
                   return $_[0]->{columns}->{$colname}
-        };
-    }
-
-    # installing load() method
-    *{ "$class\::load" } = \&Class::PObject::Template::load;
-
-    # installing save() method
-    *{ "$class\::save" } = \&Class::PObject::Template::save;
-
-    # installing remove() method
-    *{ "$class\::remove" } = \&Class::PObject::Template::remove;
-
-    # installing remove_all();
-    *{ "$class\::remove_all" } = \&Class::PObject::Template::remove_all;
-
-    # installing error():
+        }
+    }    
+    *{ "$class\::load" }        = \&Class::PObject::Template::load;
+    *{ "$class\::save" }        = \&Class::PObject::Template::save;
+    *{ "$class\::remove" }      = \&Class::PObject::Template::remove;
+    *{ "$class\::remove_all" }  = \&Class::PObject::Template::remove_all;
     *{ "$class\::error" } = sub {
           no strict 'refs';
           if ( defined $_[1] ) {
@@ -90,65 +101,80 @@ sub struct {
           }
           return ${ (ref($_[0]) || $_[0]) . '::ERROR'};
         };
-
-    #installing 'dump' - debugging utility (temp)
+    
     *{ "$class\::dump" } = sub {
           require Data::Dumper;
           my $d = Data::Dumper->new([$_[0]], [ref $_[0]]);
           $d->Indent($_[1]);
           $d->Deepcopy(1);
           $d->Dump
-        };
+        }
   }
 }
 
 
 
+
+# templates for newly created class
 package Class::PObject::Template;
-use Data::Dumper;
 use Carp;
 
 sub new {
   my $class = shift;
-  $class = ref($class) || $class;
+  $class    = ref($class) || $class;
+
+  # What should be do if we detect odd number of arguments?
+  # I'd say we should croak() right away. We don't want to
+  # end-up with corrupted record in the database, whether the
+  # code checks for error messages, or not!
+  if ( @_ % 2 ) {
+    croak "Odd number of arguments passed to new(). May result in corrupted data";
+  }
 
   my $props_sub = sub {
     no strict 'refs';
     return ${ "$class\::props" }
   };
+
   my $props = $props_sub->();
 
-  # object properties as represented by Class::PObject
+  # object properties as represented internally by Class::PObject.
+  # Please, don't use this information from within your codes. This
+  # change in subsequent releases
   my $self = {
       columns     => { },
-      driver      => $props->{driver} || 'file',
-      datasource  => $props->{datasource}
+      driver      => $props->{driver},
+      datasource  => $props->{datasource} || undef,
   };
-
-  # converting all the names to lowercase. Initially introduced
-  # to fix DBD::CSV behavior, but then made it to apply to all the drivers
+  
+  # DBD::CVS seems to keep all the column names in uppercase. This is a problem,
+  # when the load() method calls new() with key/value pairs while creating an object
+  # off the disk. So we first convert the @_ to a hashref
   my $args = { @_ };
+  # and fill in 'columns' attribute of the class with lower-cased names:
   while ( my ($k, $v) = each %$args ) {
     $self->{columns}->{lc $k} = $v;
   }
 
-  if ( @_ % 2 ) {
-    $class->error("Odd number of arguments passed to new()");
-    return undef;
-  }
-
-  # I'm not sure if 'datasource' should be mandatory. I'm open to
-  # any suggestions. Some drivers may be able to recover 'datasource' on the fly,
-  # without asking for expclicit definition.
-  unless ( defined $self->{datasource} ) {
-    $class->error("'datasource' is required");
-    #return undef;
-  }
-
-  # if any of the columns are empty, we should initialize them to 'undef'
+  # It's possible that new() was not given all the column/values. So we
+  # detect the ones missing, and assign them 'undef'
   for my $colname ( @{$props->{columns}} ) {
     $self->{columns}->{$colname} ||= undef;
   }
+  
+  # I'm not sure if 'datasource' should be mandatory. I'm open to
+  # any suggestions. Some drivers may be able to recover 'datasource' on the fly,
+  # without asking for expclicit definition. I'm open to suggestions
+  unless ( defined $self->{datasource} ) {
+    #$class->error("'datasource' is required");
+    #return undef;
+  }
+
+  # we may also check if the driver is indeed a valid one. However doing so
+  # does not allow creating in-memory objects without valid driver. So let's leave 
+  # this test for related methods.
+  
+  # returning the object!
   return bless($self, $class);
 }
 
@@ -156,46 +182,48 @@ sub new {
 
 
 sub save {
-  my $self = shift;
+  my $self  = shift;
   my $class = ref($self) || $self;
 
   my $props_sub = sub {
     no strict 'refs';
     return ${ "$class\::props" }
   };
+
   my $props = $props_sub->();
-
-  unless ( defined $props->{driver} ) {
-    $props->{driver} = 'file';
-  }
-
   my $pm = "Class::PObject::Driver::" . $props->{driver};
 
   # closure for getting and setting driver object
   my $get_set_driver = sub {
     no strict 'refs';
     if ( defined $_[0] ) {
-      ${ "$pm\::DRIVER_OBJECT" } = $_[0];
+      ${ "$pm\::OBJECT" } = $_[0];
     }
-    return ${ "$pm\::DRIVER_OBJECT" };
+    return ${ "$pm\::OBJECT" };
   };
 
+  # if the driver object is still available, we should use it
+  # instead of creating another object. For DBI-related drivers,
+  # creating new objects may be costly
   my $driver_obj = $get_set_driver->();
-
   unless ( defined $driver_obj ) {
-    #warn "Creating a new driver object\n";
-
     eval "require $pm";
     if ( $@ ) {
       $self->error("couldn't load $pm: " . $@);
       return undef;
     }
     $driver_obj = $pm->new();
+    unless ( defined $driver_obj ) {
+      $self->error("couldn't create '$pm' object: " . $pm->error);
+      return undef;
+    }
+    # we cache the driver object now so it will be available later
     $get_set_driver->($driver_obj);
   }
 
+  # we now call the driver's save() method, with the name of the class,
+  # all the props passed to struct(), and column values to be stored
   my $rv = $driver_obj->save($class, $props, $self->{columns});
-
   unless ( defined $rv ) {
     $self->error($driver_obj->error);
     return undef;
@@ -212,46 +240,57 @@ sub load {
   my $self = shift;
   my $class = ref($self) || $self;
 
+  # closure for getting the class properties
   my $props_sub = sub {
     no strict 'refs';
     return ${ "$class\::props" }
   };
-  my $props = $props_sub->();
 
+  my $props = $props_sub->();
   my $pm = "Class::PObject::Driver::" . $props->{driver};
- # closure for getting and setting driver object
+
+  # closure for getting and setting driver object
   my $get_set_driver = sub {
     no strict 'refs';
     if ( defined $_[0] ) {
-      ${ "$pm\::DRIVER_OBJECT" } = $_[0];
+      ${ "$pm\::OBJECT" } = $_[0];
     }
-    return ${ "$pm\::DRIVER_OBJECT" };
+    return ${ "$pm\::OBJECT" };
   };
 
   my $driver_obj = $get_set_driver->();
   unless ( defined $driver_obj ) {
-    #warn "Creating a new driver object\n";
     eval "require $pm";
     if ( $@ ) {
       $self->error("couldn't load $pm: " . $@);
       return undef;
     }
     $driver_obj = $pm->new();
+    unless ( defined $driver_obj ) {
+      $self->error($pm->error);
+      return undef;
+    }
     $get_set_driver->($driver_obj);
   }
 
+  # if we are not called in context where array value is expected,
+  # we optimize our query by defining 'limit'
   unless ( wantarray() ) {
     $_[1]->{limit} = 1;
   }
   
   my $rows = $driver_obj->load($class, $props, @_) or return;
   unless ( scalar @$rows ) {
-    $self->error($driver_obj->error);
-    return undef;
+    $self->error( $driver_obj->error );
+    return ();
   }
+
+  # if calle din array context, we return an array of objects:
   if (  wantarray() ) {
-    return map { $self->new(%$_) } @$rows;
-  }  
+    return (map { $self->new(%$_) } @$rows);
+  }
+
+  # if we come this far, we're being called in scalar context
   return $self->new( %{ $rows->[0] } );
 }
 
@@ -259,38 +298,45 @@ sub load {
 
 sub remove {
   my $self = shift;
-  my $class = ref($self) || $self;
+  my $class = ref($self);
+
+  unless ( ref($self) ) {
+    croak "remove() used as a static method";
+  }
 
   my $props_sub = sub {
     no strict 'refs';
     return ${ ref($self) . '::props' }
   };
-  my $props = $props_sub->();
 
-  my $pm = "Class::PObject::Driver::" . $props->{driver};
+  my $props = $props_sub->();
+  my $pm    = "Class::PObject::Driver::" . $props->{driver};
 
   # closure for getting and setting driver object
   my $get_set_driver = sub {
     no strict 'refs';
     if ( defined $_[0] ) {
-      ${ "$pm\::DRIVER_OBJECT" } = $_[0];
+      ${ "$pm\::OBJECT" } = $_[0];
     }
-    return ${ "$pm\::DRIVER_OBJECT" };
+    return ${ "$pm\::OBJECT" };
   };
 
   my $driver_obj = $get_set_driver->();
-
+  # if the driver object doesn't already exist, it either means this object
+  # hasn't been flushed into disk yet, so remove() doesn't make sense, or
+  # the driver object was lost somewhere. I believe it is a more serious
+  # problem, so we just have to croak()
   unless ( defined $driver_obj ) {
-    $self->error("driver object doesn't exist. Don't know what to remove.");
-    return undef;
+    croak "driver object is missing";
   }
 
+  # if 'id' field is missing, most likely it's because this particular object
+  # hasn't been saved into disk yet
   unless ( defined $self->id) {
-    die $self->dump;
+    croak "object is not saved into disk yet";
   }
 
   my $rv = $driver_obj->remove($class, $props, $self->id);
-
   unless ( defined $rv ) {
     $self->error($driver_obj->error);
     return undef;
@@ -313,38 +359,54 @@ sub remove_all {
     no strict 'refs';
     return ${ (ref($self) || $self) . '::props' }
   };
-  my $props = $props_sub->();
 
+  my $props = $props_sub->();
   my $pm = "Class::PObject::Driver::" . $props->{driver};
 
   # closure for getting and setting driver object
   my $get_set_driver = sub {
     no strict 'refs';
     if ( defined $_[0] ) {
-      ${ "$pm\::DRIVER_OBJECT" } = $_[0];
+      ${ "$pm\::OBJECT" } = $_[0];
     }
-    return ${ "$pm\::DRIVER_OBJECT" };
+    return ${ "$pm\::OBJECT" };
   };
 
   my $driver_obj = $get_set_driver->();
 
   unless ( defined $driver_obj ) {
-    #warn "Creating a new driver object\n";
     eval "require $pm";
     if ( $@ ) {
       die "couldn't load $pm: " . $@;
     }
-    $driver_obj = $pm->new($props, $class);
+    $driver_obj = $pm->new();
+    unless ( defined $driver_obj ) {
+      $self->error($pm->error);
+      return undef;
+    }
     $get_set_driver->($driver_obj);
   }
-  my $rv = $driver_obj->remove_all($class, $props);
-  unless ( defined $rv ) {
-    $self->error($driver_obj->error());
-    return undef;
-  }
-  return $rv;
-}
 
+  # if remove_all() is supported, we better call it
+  # otherwise try to deal with it on our own
+  if ( $driver_obj->UNIVERSAL::can('remove_all') ) {
+    my $rv = $driver_obj->remove_all($class, $props);
+    unless ( defined $rv ) {
+      $self->error($driver_obj->error());
+      return undef;
+    }
+    return 1;
+  }
+
+  for ( @{$driver_obj->load($class, $props)} ) {
+    my $dataobj = $self->new(%$_);
+    unless($dataobj->remove()) {
+      $self->error($_->error);
+      return undef;
+    }
+  }
+  return 1;
+}
 
 
 

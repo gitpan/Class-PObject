@@ -1,43 +1,49 @@
 package Class::PObject::Driver::file;
 
-# $Id: file.pm,v 1.4 2003/06/09 09:08:38 sherzodr Exp $ 
+# $Id: file.pm,v 1.5 2003/06/19 21:40:20 sherzodr Exp $ 
 
-use strict;
-use base ('Class::PObject::Driver');
-use File::Spec;
 use Carp;
+use strict;
+use File::Spec;
+use Data::Dumper;
+use base ('Class::PObject::Driver');
 use Fcntl (':DEFAULT', ':flock', ':mode');
+
 use vars ('$filef');
 
+# this is the format of the object file to be stored:
 $filef = 'obj%05d.cpo';
 
 sub save {
   my ($self, $object_name, $props, $columns) = @_;
-
+  
+  # if 'id' does not already exist, we should create new id:
   unless ( defined $columns->{id} ) {
     $columns->{id} = $self->_generate_id($object_name, $props) or return;
   }
 
+  # _get_filename() returns the name of the file this particular object should
+  # be stored. Look into _get_filename() for details
   my $filename = $self->_get_filename($object_name, $props, $columns->{id}) or return;
-
+  
+  # if we can't open the file, we set error message, and return undef
   unless ( sysopen(FH, $filename, O_WRONLY|O_CREAT|O_TRUNC, 0666) ) {
     $self->error("couldn't open '$filename': $!");
     return undef;
   }
+  # we do the same if we can't get exclusive lock on the file
   unless (flock(FH, LOCK_EX) ) {
     $self->error("couldn't lock '$filename': $!");
     return undef;
   }
-  my $d = new Data::Dumper([$columns]);
-  $d->Indent(0);
-  $d->Terse(1);
-  $d->Deepcopy(1);
-  $d->Purity(1);
-  print FH $d->Dump();
+  # and store frozen data into file:
+  print FH $self->freeze($columns);
+  # if we can't close the filehandle, it means we couldn't store it.
   unless( close(FH) ) {
     $self->error("couldn't save the object: $!");
     return undef;
   }
+  # if everything went swell, we should return object id
   return $columns->{id};
 }
 
@@ -46,23 +52,24 @@ sub save {
 
 sub load {
   my $self = shift;  
-  my ($object_name, $props, $terms, $args) = @_;  
+  my ($object_name, $props, $terms, $args) = @_;
   
+  # if we're asked to load by id, let's take a shortcust instead,
+  # thus much faster
   if ( $terms && (ref($terms) ne 'HASH') && ($terms =~m/^\d+$/) ) {
-    $terms = {id => $_[2]};
+    return $self->load_by_id($object_name, $props, $terms) or return;
   }
   
-  my @data_set = ();
+  # if we come this far, we're being asked to return either all the objects,
+  # or by some criteria
+  my @data_set  = ( );
+  $args       ||= { };
 
-  if ( defined $terms->{id} ) {
-    my $row =  $self->load_by_id($object_name, $props, $terms->{id}) or return;
-    return [$row];
-  }
-
-  $args ||= { };
-
-  my $dir = $self->_get_dirname($object_name, $props);
+  # to do it, we need to figure out which directory the objects of this
+  # type are most likely to be stored
+  my $dir = $self->_get_dirname($object_name, $props) or return;
   
+  # and iterate through each object file:
   require IO::Dir;
   my %files = ();
   unless(tie (%files, "IO::Dir", $dir)) {    
@@ -72,14 +79,22 @@ sub load {
   
   my $n = 0;
   while ( my ($filename, $stat) = each %files ) {
-    if ( defined($args->{limit}) && (!$args->{offset}) && (!$args->{'sort'}) && ($n == $args->{limit}) ) {      
+    # if 'limit' was given, and 'offset' is missing and sort is not given,
+    # then check we have already reached our 'limit'
+    if ( defined($args->{limit}) && (!$args->{offset}) && (!$args->{'sort'}) && ($n == $args->{limit}) ) {
+      # if so, exist the loop
       last;
     }
+    # if it is a directory, then skip to the next file
     S_ISDIR($stat->mode) && next;  
+    
+    # defining a regex pattern to check againts the filename to determine
+    # if it can be the file object stored in
     my $filef_pattern = $filef;
     $filef_pattern =~ s/\%\d*d/\\d\+/g;
     $filef_pattern =~ s/\./\\./g;    
-    $filename =~ m/^$filef_pattern$/ or next;    
+    $filename =~ m/^$filef_pattern$/ or next;
+    # we open the file with read-only flag
     unless (sysopen(FH, File::Spec->catfile($dir, $filename), O_RDONLY)) {
       $self->error("couldn't open '$filename': $!");
       return undef;
@@ -89,24 +104,27 @@ sub load {
       return undef;
     }
     local $/ = undef;
-    my $datastr = <FH>;
+    my $datastr = <FH>; close(FH);
     unless( defined $datastr ) {
       next;
     }
-    my ($save_str) = $datastr =~ m/^(.*)$/;
-    my $data = eval $save_str;
+    my $data = $self->thaw($datastr);
     if ( $self->_is_a_match($data, $terms) ) {
       push @data_set, $data;
       $n++;
     }
-    close(FH);
   }
+  # untying the directory
   untie(%files);
+
+  # returning post-processed data set
   return $self->_post_process(\@data_set, $args);
 }
 
 
 
+# main purpose of _post_process is to splice the data set
+# according to arguments passed to load():
 sub _post_process {
   my ($self, $data_set, $args) = @_;
   
@@ -114,8 +132,11 @@ sub _post_process {
     return $data_set;
   }
 
+  # if sorting column was defined
   if ( defined($args->{'sort'}) ) {    
-    $args->{direction} ||= 'asc';    
+    # default to 'asc' sorting direction if it was not specified
+    $args->{direction} ||= 'asc';
+    # and sort the data set
     if ( $args->{direction} eq 'desc' ) {      
       $data_set = [ sort {$b->{$args->{'sort'}} cmp $a->{$args->{'sort'}} } @$data_set];
     } else {
@@ -123,10 +144,15 @@ sub _post_process {
     }
   }
 
+  # if 'limit' was defined
   if ( defined $args->{limit} ) {
+    # default to 0 for 'offset' if 'offset' was not set
     $args->{offset} ||= 0;
+    # and spliace the data set
     return [splice(@$data_set, $args->{offset}, $args->{limit})];
   }
+
+  # return the set
   return $data_set;
 }
 
@@ -136,38 +162,52 @@ sub _post_process {
 
 
 
+# _is_a_match determines if this particular data-set matches
+# our terms
 sub _is_a_match {
   my ($self, $data, $terms) = @_;
   
+  # if no terms were defined, return true
   unless ( keys %$terms ) {
     return 1;
   }
   
+  # otherwise check this data set againsts all the terms
+  # provided. If even one of those terms are not satisfied,
+  # return false
   while ( my ($column, $value) = each %$terms ) { 
     if ( $data->{$column} ne $value ) {
       return 0;
     }  
   }
+
+  # if we reached this far, all the terms have been satisfied.
   return 1;
 }
 
 
 
 
+# load_by_id() is called only while object is to be retrieved by its id
 sub load_by_id {
   my ($self, $object_name, $props, $id) = @_;
 
+  # determine the name of the file for this object
   my $filename = $self->_get_filename($object_name, $props, $id) or return;
-
+  
+  # open that file
   unless ( sysopen(FH, $filename, O_RDONLY) ) {
     $self->error("couldn't open '$filename': $!");
     return undef;
   }
+  # lock the filehandle
   unless(flock(FH, LOCK_SH)) {
     $self->error("couldn't lock '$filename': $!");
     return undef;
   }
+  # undefined record seperator
   local $/ = undef;
+  # slurp the whole file in
   my $data_str = <FH>;
   close(FH);
   unless ( $data_str ) {
@@ -175,45 +215,8 @@ sub load_by_id {
     return undef;
   }
 
-  my ($save_str) = $data_str =~ m/^(.*)$/;
-  my $data = eval "$save_str";
-  if ( $@ ) {
-    $self->error("object data is invalid: $@");
-    return undef;
-  }    
-  return $data;
+  return [$self->thaw($data_str)];
 }
-
-
-
-
-
-sub remove_all {
-  my ($self, $object_name, $props) = @_;
-
-
-  my $dir = $self->_get_dirname($object_name, $props);
-  
-  require IO::Dir;  
-  my %files;
-  unless (tie (%files, "IO::Dir", $dir) ) {
-    $self->error("couldn't open '$dir': $!");
-    return undef;
-  }
-  while ( my ($file, $stat) = each %files ) {
-    my $filef_pattern = $filef;
-    $filef_pattern =~ s/\%\d*d/\\d\+/g;
-    $file =~ m/^$filef_pattern$/ or next;
-    unless(unlink(File::Spec->catfile($dir, $file))) {
-      $self->error("couldn't unlink '$file': $!");
-      return undef;
-    }
-  }
-  untie(%files);
-  return 1;
-}
-
-
 
 
 
@@ -275,8 +278,8 @@ sub _get_filename {
 
   unless ( defined $id ) {
     croak "Usage: _file_name(\$id)";
-  }  
-  my $dir = $self->_get_dirname($object_name, $props);
+  }
+  my $dir = $self->_get_dirname($object_name, $props) or return;
   return File::Spec->catfile($dir, sprintf($filef, $id));
 }
 
@@ -285,12 +288,18 @@ sub _get_dirname {
   my ($self, $object_name, $props) = @_;
 
   my $dir = $props->{datasource};
+
+  # if 'datasource' was not specified, we should
+  # create a location for object of this type in the
+  # system's temp folder:
   unless ( defined $dir ) {  
     my $tmpdir = File::Spec->tmpdir();  
     $object_name =~ s/\W+/_/g;
     $dir = File::Spec->catfile($tmpdir, lc($object_name));
   }
 
+  # if the directory that we just created doesn't exist,
+  # we should create it
   unless ( -e $dir ) {
     require File::Path;
     unless (File::Path::mkpath($dir) ) {
@@ -298,9 +307,45 @@ sub _get_dirname {
       return undef;
     }
   }
-
+  
+  # return the directory
   return $dir;
 }
+
+
+
+
+
+sub freeze {
+  my ($self, $data) = @_;
+
+  require Data::Dumper;
+  my $d = new Data::Dumper([$data]);
+  $d->Indent(0);
+  $d->Terse(1);
+  $d->Deepcopy(1);
+  $d->Purity(1);
+  return $d->Dump();
+}
+
+
+
+sub thaw {
+  my ($self, $datastr) = @_;
+  
+  # to make -T happy
+  my ($safestr) = $datastr =~ m/^(.*)$/;
+
+  # creating a new compartment to compile this code safely.
+  require Safe;
+  my $cpt = new Safe();
+  return $cpt->reval($safestr)
+}
+
+
+
+
+
 
 
 

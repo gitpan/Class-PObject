@@ -3,17 +3,16 @@
 
 #########################
 
-# $Id: 05cvs_mult.t,v 1.3 2003/06/08 20:58:57 sherzodr Exp $
+# $Id: 05cvs_mult.t,v 1.4 2003/06/20 00:04:44 sherzodr Exp $
 
 
-print "1..0 # Skipped: 'cvs' driver is buggy! To be fixed in next releases\n";
-exit(0);
+#print "1..0 # Skipped: 'cvs' driver is buggy! To be fixed in next releases\n";
+#exit(0);
 
 use strict;
 use Test;
-use Data::Dumper;
 use File::Spec;
-#BEGIN { plan tests => 21, todo=>[(1..21)]};
+BEGIN { plan tests => 21};
 use Class::PObject;
 
 
@@ -31,7 +30,7 @@ pobject Album => {
   columns => ['id', 'title'],
   driver  => 'csv',  
   datasource => {
-    Dir => File::Spec->catfile('t', 'data', '05_albums')
+    Dir => File::Spec->catfile('t', 'data', '05')
   }
 };
 
@@ -39,7 +38,7 @@ pobject Song => {
   columns => ['id', 'title', 'artist', 'album_id'],
   driver    => 'csv',
   datasource => {
-    Dir => File::Spec->catfile('t', 'data', '05_song'),
+    Dir => File::Spec->catfile('t', 'data', '05'),
   }
 };
 
@@ -80,8 +79,7 @@ my @favorites = Song->load({artist=>"Ozoda", album_id=>$album_id});
 ok(@favorites == 2);
 
 # checking 'limit'
-my @the_favorite = Song->load(undef, {limit=>1});
-#print Dumper(\@the_favorite);
+my @the_favorite = Song->load(undef, {limit=>1});       # 13
 ok(@the_favorite == 1);
 
 

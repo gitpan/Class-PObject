@@ -3,13 +3,13 @@
 
 #########################
 
-# $Id: 01file.t,v 1.4 2003/06/09 07:41:43 sherzodr Exp $
+# $Id: 01file.t,v 1.5 2003/06/19 21:41:10 sherzodr Exp $
 
 use strict;
 use Test;
 use File::Spec;
 BEGIN {
-  plan( tests => 25 );
+  plan( tests => 26 );
 }
 use Class::PObject;
 ok(1);
@@ -20,8 +20,6 @@ pobject Person => {
   ],  
   datasource => File::Spec->catfile('t', 'data', '01_file')
 };
-
-
 
 
 
@@ -132,6 +130,10 @@ undef($p4);
 # trying to load previously deleted object. It should fail
 my $p5 = Person->load($new_id);
 ok($p5 ? 0 : 1);
+
+# trying the same thing in array context
+my @p5 = Person->load($new_id);
+ok(@p5 ? 0 : 1);
 
 
 
