@@ -1,6 +1,6 @@
 
 
-# $Id: 11basic_mysql.t,v 1.3 2003/08/22 21:00:13 sherzodr Exp $
+# $Id: 11basic_mysql.t,v 1.4 2003/08/23 13:15:13 sherzodr Exp $
 
 BEGIN {
     for ( "DBI", "DBD::mysql" ) {

@@ -6,6 +6,8 @@ Makefile.PL
 PObject.pm
 PObject/Driver.pm
 PObject/Driver/DBI.pm
+PObject/Driver/DBM.pm
+PObject/Driver/DB_File.pm
 PObject/Driver/csv.pm
 PObject/Driver/file.pm
 PObject/Driver/mysql.pm
@@ -16,3 +18,4 @@ README
 t/01basic_file.t
 t/06basic_csv.t
 t/11basic_mysql.t
+t/16basic_db_file.t

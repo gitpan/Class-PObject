@@ -1,6 +1,6 @@
 package Class::PObject::Driver::file;
 
-# $Id: file.pm,v 1.10 2003/08/23 10:36:44 sherzodr Exp $
+# $Id: file.pm,v 1.11 2003/08/23 13:15:12 sherzodr Exp $
 
 use strict;
 use File::Spec;

@@ -1,6 +1,6 @@
 
 
-# $Id: Makefile.PL,v 1.9 2003/08/23 10:36:22 sherzodr Exp $
+# $Id: Makefile.PL,v 1.10 2003/08/23 13:15:08 sherzodr Exp $
 
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence

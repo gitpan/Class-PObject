@@ -1,6 +1,6 @@
 
 
-# $Id: 06basic_csv.t,v 1.2 2003/08/22 21:00:13 sherzodr Exp $
+# $Id: 06basic_csv.t,v 1.3 2003/08/23 13:15:13 sherzodr Exp $
 
 BEGIN {
     for ( "DBI", "DBD::CSV" ) {

@@ -1,6 +1,6 @@
 package Class::PObject::Driver;
 
-# $Id: Driver.pm,v 1.8 2003/08/23 10:36:40 sherzodr Exp $
+# $Id: Driver.pm,v 1.9 2003/08/23 13:15:10 sherzodr Exp $
 
 use strict;
 use Carp;
