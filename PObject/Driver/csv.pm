@@ -1,6 +1,6 @@
 package Class::PObject::Driver::csv;
 
-# $Id: csv.pm,v 1.3 2003/06/08 23:22:19 sherzodr Exp $
+# $Id: csv.pm,v 1.4 2003/06/09 09:08:38 sherzodr Exp $
 
 use strict;
 use base ('Class::PObject::Driver');
@@ -130,7 +130,7 @@ sub load {
   while ( my $row = $sth->fetchrow_hashref() ) {
     push @rows, $row;
   }
-  return @rows;
+  return \@rows;
 }
 
 

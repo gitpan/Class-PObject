@@ -3,7 +3,7 @@
 
 #########################
 
-# $Id: 03mysql.t,v 1.4 2003/06/09 07:41:43 sherzodr Exp $
+# $Id: 03mysql.t,v 1.5 2003/06/09 09:08:41 sherzodr Exp $
 
 use strict;
 use Test;
@@ -156,6 +156,7 @@ ok($p4);
 
 ok($p4->remove);
 
+
 # destroying object
 undef($p4);
 
@@ -168,6 +169,7 @@ undef($p4);
 #--------------------------------------------------------------------
 # trying to load previously deleted object. It should fail
 my $p5 = Person->load($new_id);
+#print $p5->dump;
 ok($p5 ? 0 : 1);
 
 

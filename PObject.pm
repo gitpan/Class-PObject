@@ -1,6 +1,6 @@
 package Class::PObject;
 
-# $Id: PObject.pm,v 1.5 2003/06/09 07:41:09 sherzodr Exp $
+# $Id: PObject.pm,v 1.7 2003/06/09 09:14:32 sherzodr Exp $
 
 use strict;
 use Carp;
@@ -12,15 +12,12 @@ require Exporter;
 @EXPORT = ('pobject');
 @EXPORT_OK = ('struct');
 
-($VERSION) = '$Revision: 1.5 $' =~ m/Revision:\s*(\S+)/;
+($VERSION) = '$Revision: 1.7 $' =~ m/Revision:\s*(\S+)/;
 
 # Preloaded methods go here.
 
 
-{
-  no strict 'refs';
-  *pobject = \&struct
-}
+*pobject = \&struct;
 
 sub struct {
   my ($class, $props);
@@ -243,21 +240,19 @@ sub load {
     $get_set_driver->($driver_obj);
   }
 
-  if ( wantarray() ) {
-    my @rows = $driver_obj->load($class, $props, @_);
-    unless ( @rows ) {
-      $self->error($driver_obj->error);
-      return undef;
-    }
-    return map { $self->new(%$_) } @rows;
+  unless ( wantarray() ) {
+    $_[1]->{limit} = 1;
   }
-
-  my @row = $driver_obj->load($class, $props, @_);
-  unless ( $row[0] ) {
+  
+  my $rows = $driver_obj->load($class, $props, @_) or return;
+  unless ( scalar @$rows ) {
     $self->error($driver_obj->error);
     return undef;
   }
-  return $self->new(%{$row[0]});
+  if (  wantarray() ) {
+    return map { $self->new(%$_) } @$rows;
+  }  
+  return $self->new( %{ $rows->[0] } );
 }
 
 

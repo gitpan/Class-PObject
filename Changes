@@ -1,5 +1,10 @@
 Revision history for Perl extension Class::PObject
 
+1.7		Monday, June 09, 2003
+		- in cases no matches can be loaded, load() of the drivers' still
+		  used to return a defined array with a single undefined element.
+			Fixed in 1.7
+
 1.5		Monday, June 09, 2003
 	-	columns() method added.
 	- struct() is documented
@@ -12,4 +17,4 @@ Revision history for Perl extension Class::PObject
 		-AXn Class::Struct::Persistent
 
 
-$Id: Changes,v 1.3 2003/06/09 07:41:09 sherzodr Exp $
+$Id: Changes,v 1.4 2003/06/09 09:14:32 sherzodr Exp $

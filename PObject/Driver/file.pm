@@ -1,6 +1,6 @@
 package Class::PObject::Driver::file;
 
-# $Id: file.pm,v 1.3 2003/06/08 23:22:19 sherzodr Exp $ 
+# $Id: file.pm,v 1.4 2003/06/09 09:08:38 sherzodr Exp $ 
 
 use strict;
 use base ('Class::PObject::Driver');
@@ -56,7 +56,7 @@ sub load {
 
   if ( defined $terms->{id} ) {
     my $row =  $self->load_by_id($object_name, $props, $terms->{id}) or return;
-    return ($row);
+    return [$row];
   }
 
   $args ||= { };
@@ -111,7 +111,7 @@ sub _post_process {
   my ($self, $data_set, $args) = @_;
   
   unless ( keys %$args ) {
-    return @$data_set;
+    return $data_set;
   }
 
   if ( defined($args->{'sort'}) ) {    
@@ -125,10 +125,9 @@ sub _post_process {
 
   if ( defined $args->{limit} ) {
     $args->{offset} ||= 0;
-    return (splice(@$data_set, $args->{offset}, $args->{limit}));    
+    return [splice(@$data_set, $args->{offset}, $args->{limit})];
   }
-    
-  return @$data_set;
+  return $data_set;
 }
 
 

@@ -1,6 +1,6 @@
 package Class::PObject::Driver::mysql;
 
-# $Id: mysql.pm,v 1.3 2003/06/08 23:22:19 sherzodr Exp $
+# $Id: mysql.pm,v 1.5 2003/06/09 09:08:38 sherzodr Exp $
 
 use strict;
 use base ('Class::PObject::Driver');
@@ -74,18 +74,16 @@ sub load {
   my $table = $self->_get_tablename($object_name, $props) or return;
   my $sth   = $dbh->prepare(qq|SELECT * FROM $table $where_str $order_str $limit_str|);  
   unless($sth->execute(@holder)) {
-    die $sth->{Statement};
-  }
-  unless ( $sth->rows ) {
-    $self->error("No objects returned");
-    return undef;
-  }
-
+    die $sth->errstr;
+  }  
   my @rows = ();
   while ( my $row = $sth->fetchrow_hashref() ) {
     push @rows, $row;
   }
-  return @rows;
+  unless ( scalar @rows ) {
+    return undef;
+  }
+  return \@rows;
 }
 
 
