@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# $Id: Makefile.PL,v 1.4 2003/06/08 23:36:17 sherzodr Exp $
+# $Id: Makefile.PL,v 1.5 2003/06/09 07:41:09 sherzodr Exp $
 
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
@@ -25,8 +25,9 @@ WriteMakefile(
 	AUTHOR		   => 'Sherzod Ruzmetov <sherzodr@cpan.org>'
 );
 
-
-print <<MSG;
+unless ( defined $ENV{MYSQL_DB} ) {
+	print <<MSG;
 Make sure to read 'INSTALL' for details on running 'mysql' and 'csv' tests.
 MSG
+}
 

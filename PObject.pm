@@ -1,6 +1,6 @@
 package Class::PObject;
 
-# $Id: PObject.pm,v 1.4 2003/06/08 23:22:14 sherzodr Exp $
+# $Id: PObject.pm,v 1.5 2003/06/09 07:41:09 sherzodr Exp $
 
 use strict;
 use Carp;
@@ -12,7 +12,7 @@ require Exporter;
 @EXPORT = ('pobject');
 @EXPORT_OK = ('struct');
 
-($VERSION) = '$Revision: 1.4 $' =~ m/Revision:\s*(\S+)/;
+($VERSION) = '$Revision: 1.5 $' =~ m/Revision:\s*(\S+)/;
 
 # Preloaded methods go here.
 
@@ -50,6 +50,9 @@ sub struct {
 
     # installing constructor out of template:
     *{ "$class\::new" } = \&Class::PObject::Template::new;
+
+    # returns hashref of all the colum/values:
+    * { "$class\::columns" } = sub { return $_[0]->{columns} };
 
     # installing 'properties' accessor method. It returned all the properties
     # if the class (everything passed to struct()
@@ -365,7 +368,7 @@ Class::PObject - Perl extension for programming persistent objects
 
 =head1 SYNOPSIS
 
-We can create a person object like so:
+We can create a person object with:
 
   use Class::PObject
 
@@ -383,7 +386,7 @@ Or even:
     datasource => 'data/person'
   };
 
-The above Person can be now used like so:
+We can now use the above Person class:
 
   my $person = new Person();
 
@@ -392,14 +395,14 @@ The above Person can be now used like so:
 
   my $new_id = $person->save();
 
-We can  read the above saved Person later, make necessary changes and save back:
+We can access the saved Person later, make necessary changes and save back:
 
   $person = Person->load($new_id);
   $person->name('Sherzod Ruzmetov (The Geek)');
 
   $person->save();
 
-We can load all the objects with the following code:
+We can load all the previously stored objects:
 
   my @people = Person->load();
   for ( my $i=0; $i < @people; $i++ ) {
@@ -407,12 +410,12 @@ We can load all the objects with the following code:
     printf("[%02d] %s <%s>\n", $person->id, $person->name, $person->email);
   }
 
-or we can load all the objects with name 'Sherzod' and sort the list by name in descending order,
+or we can load all the objects based on some criteria and sort the list by column name in descending order,
 and limit the results to only the first 3 objects:
 
   my @people = Person->load({name=>"Sherzod"}, {sort=>'name', direction=>'desc', limit=>3});
 
-We can also retrieve records by offset:
+We can also retrieve records incrementally:
 
   my @people = Person->load(undef, {offset=>10, limit=>10});
 
@@ -423,12 +426,11 @@ Look at TODO section for more details.
 
 =head1 DESCRIPTION
 
-Class::PObject is a class representing a persistent object.  Such objects can be stored into disk,
-or even initialized from the disk.
+Class::PObject is a class framework for creating persistent objects. Such objects can store themselves
+into disk, and recreate themselves from the disk.
 
 If it is easier for you, just think of a persistent object as a single record of a relational database:
 
-  mysql> select * from song;
   +-----+----------------+--------+----------+
   | id  | title          | artist | album_id |
   +-----+----------------+--------+----------+
@@ -436,7 +438,7 @@ If it is easier for you, just think of a persistent object as a single record of
   +-----+----------------+--------+----------+
 
 The above record of a song can be represented as a persistent object. Using Class::PObject, you can defined this
-object like so:
+object like this:
 
   pobject Song => {
     columns => ['id', 'title', 'artist', 'album_id']
@@ -462,12 +464,11 @@ Object can be created in several ways. You can create the object in its own .pm 
   };
 
 
-Or you can also create an in-line object - from within your any programs with more  explicit declaration:
+Or you can also create an in-line object - from within your programs with more explicit declaration:
 
   pobject Article => {
     columns => ['id', 'title', 'date', 'author', 'source', 'text']
   };
-
 
 Effect of the above two examples is identical - Article object. By default, Class::PObject will fall back to 'file' driver if you do not specify any drivers. So the above Article object could also be redefined more explicitly as:
 
@@ -483,7 +484,7 @@ The above examples are creating temporary objects. These are the ones stored in 
     datasource => 'data/articles'
   };
 
-Now, the above article object will store its objects into data/articles folder.
+Now, the above article object will store its objects into data/articles folder. Since data storage is so dependant on the drivers, we'll leave it for library drivers.
 
 Class declarations are tightly dependant to the type of driver being used, so we'll leave the rest of the declaration to specific drivers. In this document, we'll concentrate more on the user interface of the Class::PObject - something not dependant on the driver.
 
@@ -659,6 +660,50 @@ Methods that may fail are the one to do with disk access, namely, save(), load()
   }
 
   Article->remove_all() or die "couldn't remove objects:" . Article->error;
+
+=head1 MISCELLANEOUS METHODS
+
+In addition to the above described methods, objects of Class::PObject also support the following
+few useful ones:
+
+=over 4
+
+=item * 
+
+columns() - returns hash-reference to all the columns of the object. Keys of the hash hold colum names,
+and their values hold respective column values:
+
+  my $columns = $article->columns();
+  while ( my ($k, $v) = each %$columns ) {
+    printf("%s => %s\n", $k, $v);
+  }
+
+=item *
+
+dump() - dumps the object as a chunk of visually formatted data structures using standard L<Data::Dumper>.
+This method is mainly for debugging, and I believe will be present only untill stable release of the library
+is launched.
+
+=item *
+
+error() - class method. Returns the error message from last I/O operations, if any. This error message
+is also available through $CLASS::ERROR global variable:
+
+  $article->save() or die $article->error();
+  # or
+  $article->save() or  die $Article::ERROR;
+
+=item *
+
+struct() - another alias for pobject(). Initial release of the library used to export struct(). Since it may clash with standar Class::Struct's struct(), I decided to make it available ONLY at request:
+
+  use Class::PObject 'struct';
+
+  struct Article => {
+    columns \@columns,
+  };
+
+=back
 
 =head1 TODO
 

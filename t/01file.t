@@ -3,13 +3,13 @@
 
 #########################
 
-# $Id: 01file.t,v 1.3 2003/06/08 20:58:57 sherzodr Exp $
+# $Id: 01file.t,v 1.4 2003/06/09 07:41:43 sherzodr Exp $
 
 use strict;
 use Test;
 use File::Spec;
 BEGIN {
-  plan( tests => 22 );
+  plan( tests => 25 );
 }
 use Class::PObject;
 ok(1);
@@ -37,6 +37,12 @@ $p1->email('sherzodr@handalak.com');
 # checking if the object is updated respectively
 ok($p1->name eq 'Sherzod');
 ok($p1->email eq 'sherzodr@handalak.com');
+
+# checking columns():
+my $columns = $p1->columns();
+ok(ref($columns) eq 'HASH');
+ok($columns->{name} eq 'Sherzod');
+ok($columns->{email} eq 'sherzodr@handalak.com');
 
 # storing the data into disk:
 my $new_id = $p1->save();
