@@ -1,14 +1,14 @@
 package Class::PObject;
 
-# $Id: PObject.pm,v 1.39.2.8 2003/09/06 10:14:55 sherzodr Exp $
+# $Id: PObject.pm,v 1.39.2.10 2003/09/06 14:03:06 sherzodr Exp $
 
 use strict;
 #use diagnostics;
 use Log::Agent;
 use vars ('$VERSION', '$revision');
 
-$VERSION    = '2.06_02';
-($revision) = '$Revision: 1.39.2.8 $' =~ m/Revision:\s*(\S+)/;
+$VERSION    = '2.06_03';
+($revision) = '$Revision: 1.39.2.10 $' =~ m/Revision:\s*(\S+)/;
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
@@ -795,7 +795,8 @@ few useful ones:
 =item *
 
 C<columns()> - returns hash-reference to all the columns of the object. Keys of the hash
-hold column names, and their values hold respective column values:
+hold column names, and their values hold respective column values. All the objects will be
+stringified.
 
     my $columns = $person->columns();
     while ( my ($k, $v) = each %$columns ) {
@@ -897,6 +898,6 @@ Copyright (c) 2003 Sherzod B. Ruzmetov. All rights reserved.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-$Date: 2003/09/06 10:14:55 $
+$Date: 2003/09/06 14:03:06 $
 
 =cut

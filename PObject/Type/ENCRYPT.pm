@@ -1,6 +1,6 @@
 package Class::PObject::Type::ENCRYPT;
 
-# $Id: ENCRYPT.pm,v 1.1.2.4 2003/09/06 10:15:00 sherzodr Exp $
+# $Id: ENCRYPT.pm,v 1.1.2.5 2003/09/06 14:00:51 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -8,6 +8,7 @@ use vars ('$VERSION', '@ISA');
 use Carp "croak";
 use overload (
     'eq' => sub { crypt($_[1], $_[0]->id) eq $_[0]->id },
+    bool  => sub { $_[0]->id ? 1 : 0 },
     fallback => 1
 );
 

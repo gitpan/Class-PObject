@@ -3,6 +3,7 @@ package Class::PObject::Test::HAS_A;
 use strict;
 #use diagnostics;
 use Test::More;
+use Data::Dumper;
 use vars ('$VERSION', '@ISA');
 
 BEGIN {
@@ -107,6 +108,8 @@ sub run {
     ok($article->title eq "Class::PObject now supports type-mapping", $article->title);
     ok($author->name eq "Sherzod Ruzmetov",    $article->author->name);
     ok(ref($author) eq "PO::Author",                ref($article->author));
+
+    print Dumper($article->columns);
 
     ok(PO::Article->count({author=>$author}) == 1);
     ok(PO::Article->remove_all);

@@ -1,6 +1,6 @@
 package Class::PObject::Type::MD5;
 
-# $Id: MD5.pm,v 1.1.2.4 2003/09/06 10:15:00 sherzodr Exp $
+# $Id: MD5.pm,v 1.1.2.5 2003/09/06 14:00:51 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -9,6 +9,7 @@ use Digest::MD5 ("md5_hex");
 use Class::PObject::Type;
 use overload (
     'eq'    => sub { $_[0]->id eq md5_hex($_[1]) },
+    bool  => sub { $_[0]->id ? 1 : 0 },
     fallback => 1,
 );
 

@@ -1,6 +1,6 @@
 package Class::PObject::Template;
 
-# $Id: Template.pm,v 1.17.2.7 2003/09/06 10:14:56 sherzodr Exp $
+# $Id: Template.pm,v 1.17.2.8 2003/09/06 14:00:48 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -342,7 +342,13 @@ sub columns {
 
     logtrc 2, "%s->columns()", $class;
 
-    return $self->{columns}
+    my %columns = ();
+    while ( my ($k, $v) = each %{$self->{columns}} ) {
+        $v = $v->id while ref $v;
+        $columns{$k} = $v;
+    }
+
+    return \%columns
 }
 
 
