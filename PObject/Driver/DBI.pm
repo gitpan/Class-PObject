@@ -1,6 +1,6 @@
 package Class::PObject::Driver::DBI;
 
-# $Id: DBI.pm,v 1.3 2003/08/23 10:36:44 sherzodr Exp $
+# $Id: DBI.pm,v 1.4 2003/08/23 14:31:29 sherzodr Exp $
 
 use strict;
 use Carp;
@@ -148,6 +148,7 @@ sub load {
     my $table = $self->_tablename($object_name, $props, $dbh) or return;
     my ($sql, $bind_params)   = $self->_prepare_select($table, $terms, $args);
 
+    $self->_read_lock($dbh, $table) or return undef;
     my $sth   = $dbh->prepare( $sql );
     unless( $sth->execute(@$bind_params) ) {
         $self->errstr($sth->errstr);
@@ -162,6 +163,7 @@ sub load {
     while ( my $row = $sth->fetchrow_hashref() ) {
         push @rows, $row
     }
+    $self->_unlock($dbh, $table);
     return \@rows
 }
 
@@ -184,11 +186,14 @@ sub remove {
     my $table               = $self->_tablename($object_name, $props, $dbh) or return;
     my ($sql, $bind_params) = $self->_prepare_delete($table);
 
+    $self->_write_lock($dbh, $table) or return undef;
+
     my $sth                 = $dbh->prepare( $sql );
     unless ( $sth->execute($id) ) {
         $self->errstr($sth->errstr);
         return undef
     }
+    $self->_unlock($dbh, $table) or return undef;
     return $id
 }
 
@@ -204,11 +209,13 @@ sub remove_all {
     my $table               = $self->_tablename($object_name, $props, $dbh) or return;
     my ($sql, $bind_params) = $self->_prepare_delete($table, $terms);
 
+    $self->_write_lock($dbh, $table) or return undef;
     my $sth   = $dbh->prepare( $sql );
     unless ( $sth->execute(@$bind_params) ) {
         $self->errstr($sth->errstr);
         return undef
     }
+    $self->_unlock($dbh, $table) or return undef;
     return 1
 }
 
@@ -224,14 +231,66 @@ sub count {
     my ($where_clause, $bind_params)= $self->_prepare_where_clause($terms);
     my $sql                         = "SELECT COUNT(*) FROM $table " . $where_clause;
 
+    $self->_read_lock($dbh, $table) or return undef;
     my $sth                         = $dbh->prepare( $sql );
     unless ( $sth->execute( @$bind_params ) ) {
         $self->errstr($sth->errstr);
         return undef
     }
 
-    return $sth->fetchrow_array || 0
+    my $count = $sth->fetchrow_array || 0;
+    $self->_unlock($dbh, $table) or return undef;
+    return $count
 }
+
+
+
+
+
+
+sub _read_lock {
+    my ($self, $dbh, $table) = @_;
+
+
+
+
+
+
+}
+
+
+
+
+
+
+
+sub _write_lock {
+    my ($self, $dbh, $table) = @_;
+
+
+
+
+
+
+}
+
+
+
+
+
+sub _unlock {
+    my ($self, $dbh, $table) = @_;
+
+
+
+
+
+
+}
+
+
+
+
 
 
 
