@@ -7,6 +7,7 @@ PObject.pm
 PObject/Driver.pm
 PObject/Driver/csv.pm
 PObject/Driver/DB_File.pm
+PObject/Driver/db_file.pm
 PObject/Driver/DBI.pm
 PObject/Driver/DBM.pm
 PObject/Driver/file.pm
@@ -16,9 +17,18 @@ PObject/Iterator.pm
 PObject/Template.pm
 PObject/Test.pm
 PObject/Test/Basic.pm
+PObject/Test/Types.pm
+PObject/Type.pm
+PObject/Type/ENCRYPT.pm
+PObject/Type/INTEGER.pm
+PObject/Type/MD5.pm
+PObject/Type/TEXT.pm
+PObject/Type/VARCHAR.pm
 README
 t/01basic_file.t
 t/06basic_csv.t
 t/11basic_mysql.t
 t/16basic_db_file.t
 t/21basic_sqlite.t
+t/61type_md5.t
+t/62type_encrypt.t

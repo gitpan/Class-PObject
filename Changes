@@ -1,6 +1,14 @@
 Revision history for Class::PObject
 =======================================
 
+2.05_01      Tuesday, September 02, 2003
+
+            - More optimized load_ids() DBI driver method thanks to extended
+              _prepare_select() method in Driver/DBI.pm
+            - First attempt for providing extensible type-map supported,
+              but still not functional.
+
+
 2.05        Wednesday, August 27, 2003
 
             - Minor inaccuracies in the Iterator.pm's manual fixed
@@ -53,4 +61,4 @@ Revision history for Class::PObject
               AXn Class::Struct::Persistent
 
 =======================================
-$Id: Changes,v 1.8 2003/08/27 07:32:03 sherzodr Exp $
+$Id: Changes,v 1.10 2003/09/02 22:22:00 sherzodr Exp $

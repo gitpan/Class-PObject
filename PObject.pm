@@ -1,13 +1,13 @@
 package Class::PObject;
 
-# $Id: PObject.pm,v 1.34 2003/08/27 08:43:41 sherzodr Exp $
+# $Id: PObject.pm,v 1.38 2003/09/01 05:07:53 sherzodr Exp $
 
 use strict;
 use Log::Agent;
 use vars ('$VERSION', '$revision');
 
-$VERSION    = '2.05';
-($revision) = '$Revision: 1.34 $' =~ m/Revision:\s*(\S+)/;
+$VERSION    = '2.05_01';
+($revision) = '$Revision: 1.38 $' =~ m/Revision:\s*(\S+)/;
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
@@ -57,7 +57,7 @@ sub pobject {
 
     no strict 'refs';
     # if the properties have already been created, it means the user
-    # tried to create the class with the same name twice. He should be shot!
+    # is declaring the class with the same name twice. He should be shot!
     if ( ${ "$class\::props" } ) {
         logcroak "are you trying to create the same class two times?"
     }
@@ -102,7 +102,7 @@ sub pobject {
         $props->{driver} = 'file'
     }
 
-    # it's important that we cache all the properties passed so the pobject()
+    # it's important that we cache all the properties passed to the pobject()
     # as a static data. This lets multiple instances of the pobject to access
     # this data whenever needed
     ${ "$class\::props" }   = $props;
@@ -209,8 +209,6 @@ at it is, to make objects persist across processes instead of simply being destr
 exiting the scope.
 
 =head2 DATA vs OBJECT
-
-Let's discuss what in common an object can have with raw data.
 
 In a plain text database, for instance, each line could represent a single record. Different pieces of the
 record could be separated by some commonly agreed delimiter, such as a comma (,), pipe sign (|) etc.
@@ -776,6 +774,6 @@ Copyright 2003 by Sherzod B. Ruzmetov.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-$Date: 2003/08/27 08:43:41 $
+$Date: 2003/09/01 05:07:53 $
 
 =cut

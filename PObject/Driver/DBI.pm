@@ -1,6 +1,6 @@
 package Class::PObject::Driver::DBI;
 
-# $Id: DBI.pm,v 1.7 2003/08/27 00:23:37 sherzodr Exp $
+# $Id: DBI.pm,v 1.8 2003/09/02 22:22:02 sherzodr Exp $
 
 use strict;
 use Carp;
@@ -18,23 +18,18 @@ sub _prepare_where_clause {
     my ($self, $terms) = @_;
 
     $terms ||= {};
-
     unless ( ref $terms ) {
         die join ', ', caller(0)
     }
-
     # if no terms present, just return an empty string
     unless ( keys %$terms ) {
         return ("", ());
     }
-
     my ($sql, @where, @bind_params);
-
     while ( my ($k, $v) = each %$terms ) {
         push @where, "$k=?";
         push @bind_params, $v
     }
-
     $sql = "WHERE " . join (" AND ", @where);
     return ($sql, \@bind_params)
 }
@@ -42,13 +37,12 @@ sub _prepare_where_clause {
 
 
 sub _prepare_select {
-    my ($self, $table_name, $terms, $args) = @_;
+    my ($self, $table_name, $terms, $args, $cols) = @_;
 
-    my ($sql, @where, @bind_params);
-
+    my ($sql, @where, @bind_params, $selected_cols);
     my ($where_clause, $bind_params) = $self->_prepare_where_clause($terms);
-    $sql = "SELECT * FROM $table_name " . $where_clause;
-
+	$selected_cols = $cols ? join (", ", @$cols) : "*";
+    $sql = sprintf("SELECT %s FROM %s %s", $selected_cols, $table_name, $where_clause);
     if ( defined $args ) {
         $args->{limit}      ||= 1000;
         $args->{offset}     ||= 0;
@@ -169,7 +163,7 @@ sub load_ids {
 
     my $dbh   = $self->dbh($object_name, $props)              or return;
     my $table = $self->_tablename($object_name, $props, $dbh) or return;
-    my ($sql, $bind_params)   = $self->_prepare_select($table, $terms, $args);
+    my ($sql, $bind_params)   = $self->_prepare_select($table, $terms, $args, ['id']);
     
     
     my $sth   = $dbh->prepare( $sql );

@@ -1,6 +1,6 @@
 package Class::PObject::Driver::csv;
 
-# $Id: csv.pm,v 1.13 2003/08/27 00:23:37 sherzodr Exp $
+# $Id: csv.pm,v 1.15 2003/09/02 22:09:32 sherzodr Exp $
 
 use strict;
 use Carp;

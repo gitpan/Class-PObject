@@ -1,6 +1,6 @@
 package Class::PObject::Template;
 
-# $Id: Template.pm,v 1.14 2003/08/27 17:39:47 sherzodr Exp $
+# $Id: Template.pm,v 1.16 2003/08/28 16:32:24 sherzodr Exp $
 
 use strict;
 use Log::Agent;
@@ -25,11 +25,13 @@ sub new {
     my $props = $class->__props();
 
     # object properties as represented internally by Class::PObject.
-    # Whoever accesses this information from within their code will be shot
+    # Whoever accesses this information from within their code should be shot
     my $self = {
         columns     => { @_ },   # <-- holds key/value pairs
         _is_new     => 1
     };
+
+	bless($self, $class);
 
     # It's possible that new() was not given all the column/values. So we
     # detect the ones missing, and assign them 'undef'
@@ -43,11 +45,9 @@ sub new {
     # does not allow creating in-memory objects without valid driver. So let's leave
     # this test for related methods.
 
-    bless($self, $class);
-
-    # if _init() has been specified, we shoudl call it.
+    # if pobject_init() exists, we should call it
     if ( $self->UNIVERSAL::can('pobject_init') ) {
-        logtrc 2, "Calling pobject_init()";
+        logtrc 2, "calling pobject_init()";
         $self->pobject_init
     }
     return $self

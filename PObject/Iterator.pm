@@ -1,6 +1,6 @@
 package Class::PObject::Iterator;
 
-# $Id: Iterator.pm,v 1.4 2003/08/27 17:39:47 sherzodr Exp $
+# $Id: Iterator.pm,v 1.5 2003/08/28 16:32:24 sherzodr Exp $
 
 use strict;
 use Carp 'croak';
@@ -25,7 +25,6 @@ sub new {
 sub DESTROY { 
     my $self = shift;
 
-    $self->finish()
 }
 
 sub next {
@@ -70,8 +69,7 @@ sub push {
 sub finish {
     my $self = shift;
 
-    $self->{data_set} = undef;
-    $self->{pobject}  = undef;
+    $self->{data_set} = []
 }
 
 
