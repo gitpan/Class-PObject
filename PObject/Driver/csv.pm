@@ -1,6 +1,6 @@
 package Class::PObject::Driver::csv;
 
-# csv.pm,v 1.18 2003/09/09 08:46:36 sherzodr Exp
+# csv.pm,v 1.20 2003/11/07 04:51:04 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -11,7 +11,8 @@ use vars ('$VERSION', '@ISA');
 require Class::PObject::Driver::DBI;
 @ISA = ('Class::PObject::Driver::DBI');
 
-$VERSION = '2.00';
+$VERSION = '2.01';
+
 
 
 sub save {
@@ -46,10 +47,6 @@ sub save {
 
 
 
-
-
-
-
 sub generate_id {
     my ($self, $object_name, $props) = @_;
 
@@ -62,11 +59,10 @@ sub generate_id {
 
 
 
-
-
 sub dbh {
     my $self = shift;
-    my ($object_name, $props) = @_;
+    my ($object_name) = @_;
+    my $props = $object_name->__props();
 
     if ( defined $props->{datasource}->{Handle} ) {
         return $props->{datasource}->{Handle}->{Name}
@@ -115,10 +111,6 @@ sub _dir {
 
 
 
-
-
-
-
 sub _tablename {
     my ($self, $object_name, $props, $dbh) = @_;
 
@@ -134,6 +126,16 @@ sub _tablename {
         return undef
     }
     return $table
+}
+
+
+
+sub _prepare_create_table {
+    my $self = shift;
+
+    my $sql = $self->SUPER::_prepare_create_table( @_ );
+    $sql =~ s/(NOT\s+)?NULL//ig;
+    return $sql
 }
 
 

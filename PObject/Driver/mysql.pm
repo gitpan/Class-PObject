@@ -1,6 +1,6 @@
 package Class::PObject::Driver::mysql;
 
-# mysql.pm,v 1.22 2003/09/09 08:46:36 sherzodr Exp
+# mysql.pm,v 1.24 2003/11/07 04:51:04 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -8,10 +8,8 @@ use Log::Agent;
 use vars ('@ISA', '$VERSION');
 require Class::PObject::Driver::DBI;
 
-use Data::Dumper;
-
 @ISA = ('Class::PObject::Driver::DBI');
-$VERSION = '2.00';
+$VERSION = '2.01';
 
 # 
 # overriding _prepare_insert() with the version that uses REPLACE
@@ -113,7 +111,7 @@ sub _tablename {
     # if table by this name already exists in the database,
     # no reason to go any further.Return the name
     my $stashed = sprintf "exists:%s-%s", $dbh->{Name}, $tablename;
-    if ( defined $self->stash($stashed) ) {
+    if ( $self->stash($stashed) ) {
         logtrc 3, "'$stashed' was present. Table exists";
         return $tablename
     }
@@ -124,6 +122,7 @@ sub _tablename {
     logtrc 3, "Retrieved %d tables from the database", scalar keys %tables;
     if ( $tables{ $tablename } ) {
         logtrc 3, "Table '%s' exists", $tablename;
+        $self->stash($stashed, 1);
         return $tablename
     }
 
@@ -133,7 +132,6 @@ sub _tablename {
         return undef
     }
     $self->stash($stashed, 1);
-
     return $tablename
 }
 
@@ -142,28 +140,8 @@ sub _tablename {
 sub _prepare_create_table {
     my ($self, $object_name, $tablename) = @_;
 
-    my $props = $object_name->__props();
-    my @cols = ();
-    for my $column ( @{ $props->{columns} } ) {
-        my $type = $props->{tmap}->{$column};
-        if ( $type eq "MD5" ) {
-            $type = "CHAR(32)";
-        } elsif ( $type eq "ENCRYPT" ) {
-            $type = "CHAR(18)";
-        } else {
-            unless ( $type =~ m/^(CHAR|VARCHAR|INTEGER|TEXT|BLOB)(\([^\)]+\))?$/ ) {
-                logtrc 3, "%s is %s", $column, $type;
-                $type = "VARCHAR(255)"
-            }
-        }
-        if ( $column eq 'id' ) {
-            push @cols, "id INTEGER UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY";
-        } else {
-            push @cols, sprintf "%s %s NULL", $column, $type;
-        }
-    }
-    my $sql =  sprintf "\nCREATE TABLE %s (\n\t%s\n)", $tablename, join ",\n\t", @cols;
-    logtrc 4, $sql;
+    my $sql = $self->SUPER::_prepare_create_table($object_name, $tablename);
+    $sql =~ s/(id +INTEGER +PRIMARY +KEY)/$1 AUTO_INCREMENT/i;
     return $sql
 }
 

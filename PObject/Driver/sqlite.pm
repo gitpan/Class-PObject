@@ -1,6 +1,6 @@
 package Class::PObject::Driver::sqlite;
 
-# sqlite.pm,v 1.8 2003/09/09 08:46:36 sherzodr Exp
+# sqlite.pm,v 1.10 2003/11/07 04:51:04 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -11,7 +11,7 @@ require File::Basename;
 require Class::PObject::Driver::DBI;
 
 @ISA = ('Class::PObject::Driver::DBI');
-$VERSION = '2.00';
+$VERSION = '2.01';
 
 
 sub save {

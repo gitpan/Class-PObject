@@ -1,6 +1,6 @@
 package Class::PObject::Driver::DBI;
 
-# DBI.pm,v 1.11 2003/09/09 08:46:36 sherzodr Exp
+# DBI.pm,v 1.13 2003/11/07 04:51:04 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -11,8 +11,7 @@ use vars ('$VERSION', '@ISA');
 
 @ISA = ('Class::PObject::Driver');
 
-$VERSION = '2.01';
-
+$VERSION = '2.02';
 
 
 
@@ -34,18 +33,15 @@ sub _prepare_create_table {
             }
         }
         if ( $column eq 'id' ) {
-            push @cols, "id INTEGER PRIMARY KEY";
+            push @cols, "id INTEGER PRIMARY KEY NOT NULL";
         } else {
-            push @cols, sprintf "%s %s", $column, $type;
+            push @cols, sprintf "%s %s NULL", $column, $type;
         }
     }
     my $sql =  sprintf "\nCREATE TABLE %s (\n\t%s\n)", $tablename, join ",\n\t", @cols;
     logtrc 4, $sql;
     return $sql
 }
-
-
-
 
 
 
@@ -92,7 +88,6 @@ sub _prepare_select {
 
 
 
-
 sub _prepare_delete {
     my ($self, $table_name, $terms) = @_;
 
@@ -104,7 +99,6 @@ sub _prepare_delete {
 
     return ($sql, $bind_params)
 }
-
 
 
 
@@ -123,8 +117,6 @@ sub _prepare_insert {
     $sql .= sprintf(" (%s) VALUES(%s)", join(", ", @fields), join(", ", @values) );
     return ($sql, \@bind_params)
 }
-
-
 
 
 
@@ -149,10 +141,6 @@ sub _prepare_update {
 
 
 
-
-
-
-
 sub _tablename {
     my ($self, $object_name, $props, $dbh) = @_;
 
@@ -165,7 +153,6 @@ sub _tablename {
 
     return $table_name
 }
-
 
 
 
@@ -185,10 +172,6 @@ sub load {
 
     return $sth->fetchrow_hashref
 }
-
-
-
-
 
 
 
@@ -221,10 +204,6 @@ sub load_ids {
 
 
 
-
-
-
-
 sub remove {
     my $self = shift;
     my ($object_name, $props, $id)  = @_;
@@ -248,8 +227,6 @@ sub remove {
 
 
 
-
-
 sub remove_all {
     my $self  = shift;
     my ($object_name, $props, $terms) = @_;
@@ -267,6 +244,7 @@ sub remove_all {
 }
 
 
+
 sub drop_datasource {
     my $self = shift;
     my ($object_name, $props) = @_;
@@ -280,9 +258,6 @@ sub drop_datasource {
 
     return 1
 }
-
-
-
 
 
 
@@ -307,9 +282,6 @@ sub count {
 
 
 
-
-
-
 sub _read_lock {
     my ($self, $dbh, $table) = @_;
 
@@ -322,10 +294,6 @@ sub _read_lock {
 
 
 
-
-
-
-
 sub _write_lock {
     my ($self, $dbh, $table) = @_;
 
@@ -335,8 +303,6 @@ sub _write_lock {
 
 
 }
-
-
 
 
 

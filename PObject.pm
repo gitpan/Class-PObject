@@ -1,14 +1,14 @@
 package Class::PObject;
 
-# PObject.pm,v 1.48 2003/11/07 00:36:21 sherzodr Exp
+# PObject.pm,v 1.50 2003/11/07 04:46:47 sherzodr Exp
 
 use strict;
 #use diagnostics;
 use Log::Agent;
 use vars ('$VERSION', '$revision');
 
-$VERSION  = '2.10';
-$revision = '1.48';
+$VERSION  = '2.11';
+$revision = '1.50';
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
@@ -77,7 +77,10 @@ sub pobject {
     }
 
     # certain method names are reserved. Making sure they won't get overridden
-    my @reserved_methods = qw(new load fetch save pobject_init set get DESTROY);
+    my @reserved_methods = qw(
+        new load fetch save remove remove_all set get
+        pobject_init drop_datasource init_datasource DESTROY
+    );
     for my $method ( @reserved_methods ) {
         for my $column ( @{$props->{columns}} ) {
             if ( $method eq $column ) {
@@ -985,6 +988,6 @@ Copyright (c) 2003 Sherzod B. Ruzmetov. All rights reserved.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-2003/11/07 00:36:21
+2003/11/07 04:46:47
 
 =cut

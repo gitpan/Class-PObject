@@ -1,6 +1,6 @@
 package Class::PObject::Driver::db_file;
 
-# db_file.pm,v 1.4 2003/09/09 08:46:36 sherzodr Exp
+# db_file.pm,v 1.5 2003/11/07 04:43:14 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -40,7 +40,6 @@ sub drop_datasource {
         return undef
     }
     $unlock->();
-
     return 1
 }
 
