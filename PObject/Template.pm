@@ -1,12 +1,17 @@
 package Class::PObject::Template;
 
-# $Id: Template.pm,v 1.17.2.8 2003/09/06 14:00:48 sherzodr Exp $
+# $Id: Template.pm,v 1.19 2003/09/09 00:11:53 sherzodr Exp $
 
 use strict;
 #use diagnostics;
 use Log::Agent;
 use Carp;
 use vars ('$VERSION');
+use overload (
+    '""'    => sub { $_[0]->id },
+    #bool    => sub { $_[0]->id  },
+    fallback=> 1
+);
 
 $VERSION = '1.03';
 
@@ -88,10 +93,19 @@ sub get {
     }
     
     my $colvalue = $self->{columns}->{$colname};
+
+    # if the value is undef, we should return it as is, not to surprise anyone.
+    # if we keep going, the user will end up with an object,
+    # which may not appear as empty
+    unless ( defined $colvalue ) {
+        return undef
+    }
+    
     # if we already have this value in our cache, let's return it
     if ( ref $colvalue ) {
         return $colvalue
     }
+
 
     # if we come this far, this value is being inquiried for the first
     # time. So we should load() it. 
@@ -183,8 +197,8 @@ sub load {
 
     logtrc 2, "%s->load()", $class;
 
-    $terms ||= {};
-    $args  ||= {};
+    $terms = {} unless defined $terms;
+    $args  = {} unless defined $args;
 
     # if we're called in void context, why bother?
     unless ( defined wantarray() ) {
@@ -203,7 +217,7 @@ sub load {
 
     # now, if we had a single argument, and that argument was not a HASH,
     # we assume we received an ID
-    if ( $terms && (ref($terms)  ne 'HASH') ) {
+    if ( defined($terms) && (ref $terms ne 'HASH') ) {
         $ids        = [ $terms ]
     } else {
         while ( my ($k, $v) = each %$terms ) {

@@ -1,6 +1,6 @@
 
 
-# $Id: 16basic_db_file.t,v 1.4.2.1 2003/09/06 09:57:08 sherzodr Exp $
+# $Id: 16basic_db_file.t,v 1.5 2003/09/08 15:24:55 sherzodr Exp $
 
 BEGIN {
     for ( "DB_File", "Storable" ) {

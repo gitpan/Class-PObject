@@ -1,23 +1,12 @@
 Revision history for Class::PObject
 =======================================
 
-2.06_03     Saturday, September 06, 2003
-
-            - FIX: Minor bug fix in columns() method
-
-
-2.06_02     Saturday, September 06, 2003
-
-            - NEW: Full type-mapping functionality
-            - NEW: HAS-A relationships through type-mapping
-
-2.05_01      Tuesday, September 02, 2003
-
-            - More optimized load_ids() DBI driver method thanks to extended
-              _prepare_select() method in Driver/DBI.pm
-            - First attempt for providing extensible type-map supported,
-              but still not functional.
-
+2.07        Monday, September 08, 2003
+            
+            - NEW: Fully implemented type-map specification
+            - NEW: Has-a relationships through type-mapping
+            - NEW: More complete manuals
+            - FIX: Oodles of bug fixes
 
 2.05        Wednesday, August 27, 2003
 
@@ -71,4 +60,4 @@ Revision history for Class::PObject
               AXn Class::Struct::Persistent
 
 =======================================
-$Id: Changes,v 1.10.2.2 2003/09/06 14:03:06 sherzodr Exp $
+$Id: Changes,v 1.12 2003/09/09 00:11:52 sherzodr Exp $

@@ -1,6 +1,6 @@
 package Class::PObject::Driver::csv;
 
-# $Id: csv.pm,v 1.15.2.2 2003/09/06 10:14:57 sherzodr Exp $
+# $Id: csv.pm,v 1.17 2003/09/09 00:11:54 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -81,7 +81,7 @@ sub dbh {
 
     require DBI;
     
-    my $dbh = DBI->connect("DBI:CSV:f_dir=$dir");
+    my $dbh = DBI->connect("DBI:CSV:f_dir=$dir", "", "", {RaiseError=>1, PrintError=>1});
     unless ( defined $dbh ) {
         $self->error($DBI::errstr);
         return undef

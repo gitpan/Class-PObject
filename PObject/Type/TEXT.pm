@@ -1,6 +1,6 @@
 package Class::PObject::Type::TEXT;
 
-# $Id: TEXT.pm,v 1.1.2.4 2003/09/06 14:00:51 sherzodr Exp $
+# $Id: TEXT.pm,v 1.3 2003/09/09 00:11:59 sherzodr Exp $
 
 use strict;
 #use diagnostics;

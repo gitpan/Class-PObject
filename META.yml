@@ -1,7 +1,7 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         Class-PObject
-version:      2.06_03
+version:      2.07
 version_from: PObject.pm
 installdirs:  site
 requires:

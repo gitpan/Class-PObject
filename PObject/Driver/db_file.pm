@@ -1,5 +1,7 @@
 package Class::PObject::Driver::db_file;
 
+# $Id: db_file.pm,v 1.3 2003/09/09 00:11:54 sherzodr Exp $
+
 use strict;
 #use diagnostics;
 use vars ('$VERSION', '@ISA');

@@ -1,5 +1,5 @@
 
-# $Id: Philosophy.pod,v 1.1.2.2 2003/09/06 09:57:04 sherzodr Exp $
+# $Id: Philosophy.pod,v 1.3 2003/09/09 00:12:00 sherzodr Exp $
 
 =pod
 
@@ -46,11 +46,11 @@ records can be a single column marked as primary key, or multiple columns marked
 
 As you noticed, they all have something in common - they all have the same logical structure,
 a record identifier, several pieces of different records, and a container (single line, key/value pair
-or a single row). 
+or a single row).
 
 =head2 DATA AS OBJECTS
 
-All above representations are low-level.  Why couldn't we try to represent them all 
+All above representations are low-level.  Why couldn't we try to represent them all
 as a software object and forget what they really look like in the disk?
 
 For example, we could treat a single record from either of the above databases as an object, say

@@ -1,5 +1,7 @@
 package Class::PObject::Test::HAS_A;
 
+# $Id: HAS_A.pm,v 1.3 2003/09/09 00:11:57 sherzodr Exp $
+
 use strict;
 #use diagnostics;
 use Test::More;
@@ -7,7 +9,7 @@ use Data::Dumper;
 use vars ('$VERSION', '@ISA');
 
 BEGIN {
-    plan(tests => 27);
+    plan(tests => 35);
     use_ok("Class::PObject");
     use_ok("Class::PObject::Test")
 }
@@ -32,7 +34,7 @@ sub run {
         driver        => $self->{driver},
         datasource    => $self->{datasource},
         serializer    => 'storable',
-        tmap        => {
+        tmap          => {
             author        => 'PO::Author'
         }
     };
@@ -43,6 +45,19 @@ sub run {
     # Creating a new Author
     #
     my $author = new PO::Author();
+
+    ################
+    #
+    # Is Segmentation fault still persistent?
+    #
+    ok($author->name ? 0 : 1 );
+    ok($author->id ?   0 : 1 );
+    
+
+    ################
+    #
+    # Filling in details of the author
+    #
     $author->name("Sherzod Ruzmetov");
     ok($author->name eq "Sherzod Ruzmetov");
     ok(my $author_id = $author->save, $author->errstr);
@@ -54,6 +69,26 @@ sub run {
     # Creating new article
     #
     my $article = new PO::Article();
+    #print $article->dump;
+
+    ################
+    #
+    # Is segmentation fault problem fixed?
+    #
+    ok(!$article->id);
+    
+    ok($article->title ? 0 : 1);
+    #print $article->dump;
+    TODO: {
+        #local $TODO = "Still not sure why this one keeps failing";
+        ok($article->author ? 0 : 1, $article->author . " is empty")
+    }
+
+
+    ################
+    #
+    # Filling in details of the article
+    #
     $article->title("Class::PObject now supports type-mapping");
 
     $author = PO::Author->load($author_id);
@@ -80,13 +115,15 @@ sub run {
     ok($author->name eq "Sherzod Ruzmetov",    $article->author->name);
     ok(ref ($author) eq "PO::Author",                ref($article->author));
 
+    $article->author($author->id);
+
     ok($article->save == $article_id, $article->errstr);
     
     #print $article->dump;
     $article = undef;
 
     $article = PO::Article->load({author=>$author});
-    ok($article);
+    ok($article, "article: $article");
 
     #print $article->dump;
 
@@ -109,8 +146,22 @@ sub run {
     ok($author->name eq "Sherzod Ruzmetov",    $article->author->name);
     ok(ref($author) eq "PO::Author",                ref($article->author));
 
-    print Dumper($article->columns);
+    #print Dumper($article);
+    #print Dumper($author);
 
+    ################
+    # FIX:
+    # If we created another article, but didn't assign any value to its
+    # author field, when we access author(), it used to return the Author object
+    # from the previous article's author.
+    my $article2 = new PO::Article();
+    $article2->title("Is this annoying bug fixed?");
+    ok($article2->columns()->{author} ? 0 : 1, "Author shouldn't be set yet");
+    ok($article2->author ? 0 : 1, "Author shouldnt' be set yet");
+
+
+
+    ok(PO::Article->count() == 1);
     ok(PO::Article->count({author=>$author}) == 1);
     ok(PO::Article->remove_all);
     ok(PO::Article->count({author=>$author}) == 0);

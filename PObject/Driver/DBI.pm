@@ -1,6 +1,6 @@
 package Class::PObject::Driver::DBI;
 
-# $Id: DBI.pm,v 1.8.2.2 2003/09/06 10:14:57 sherzodr Exp $
+# $Id: DBI.pm,v 1.10 2003/09/09 00:11:54 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -11,7 +11,7 @@ use vars ('$VERSION', '@ISA');
 
 @ISA = ('Class::PObject::Driver');
 
-$VERSION = '2.00';
+$VERSION = '2.01';
 
 
 sub _prepare_where_clause {
@@ -201,7 +201,7 @@ sub remove {
 
     my $dbh                 = $self->dbh($object_name, $props)              or return;
     my $table               = $self->_tablename($object_name, $props, $dbh) or return;
-    my ($sql, $bind_params) = $self->_prepare_delete($table);
+    my ($sql, $bind_params) = $self->_prepare_delete($table, {id=>$id});
 
     my $sth                 = $dbh->prepare( $sql );
     unless ( $sth->execute($id) ) {

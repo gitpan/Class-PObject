@@ -1,6 +1,6 @@
 package Class::PObject::Driver::DBM;
 
-# $Id: DBM.pm,v 1.6.2.2 2003/09/06 10:14:57 sherzodr Exp $
+# $Id: DBM.pm,v 1.8 2003/09/09 00:11:54 sherzodr Exp $
 
 use strict;
 #use diagnostics;

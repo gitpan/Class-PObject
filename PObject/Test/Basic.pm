@@ -1,19 +1,21 @@
 package Class::PObject::Test::Basic;
 
+# $Id: Basic.pm,v 1.10 2003/09/09 00:11:57 sherzodr Exp $
+
 use strict;
 #use diagnostics;
 use Test::More;
 use Class::PObject;
 use Class::PObject::Test;
-
 use vars ('$VERSION', '@ISA');
+use overload;
 
 @ISA = ('Class::PObject::Test');
-$VERSION = '1.00';
+$VERSION = '1.01';
 
 
 BEGIN {
-    plan(tests => 156);
+    plan(tests => 170);
     use_ok("Class::PObject")
 }
 
@@ -55,6 +57,13 @@ sub run {
             ok(ref($_[0]) eq 'PO::Article')
         }
     }
+
+    ################
+    #
+    # Testing for the values of @ISA
+    #
+    ok($PO::Author::ISA[0] eq "Class::PObject::Template");
+    ok($PO::Article::ISA[0] eq "Class::PObject::Template");
     
 
     ####################
@@ -62,23 +71,35 @@ sub run {
     # 3. Creating new objects
     #
     my $author1 = new PO::Author();
-    ok($author1);
+    ok(ref $author1);
 
     my $author2 = new PO::Author();
-    ok($author2);
+    ok(ref $author2);
 
     my $author3 = new PO::Author(name=>"Geek", email=>'sherzodr@cpan.org');
-    ok($author3);
+    ok(ref $author3);
 
 
     my $article1 = new PO::Article();
-    ok($article1);
+    ok(ref $article1);
 
     my $article2 = new PO::Article();
-    ok($article2);
+    ok(ref $article2);
 
     my $article3 = new PO::Article();
-    ok($article3);
+    ok(ref $article3);
+
+    ################
+    #
+    # Testing if overloading is applicable
+    # to these particular objects
+    #
+    ok(overload::Overloaded($author1));
+    ok(overload::Overloaded($author2));
+    ok(overload::Overloaded($author3));
+    ok(overload::Overloaded($article1));
+    ok(overload::Overloaded($article2));
+    ok(overload::Overloaded($article3));
 
     ####################
     #
@@ -158,6 +179,9 @@ sub run {
     my $article1_id = undef;
     ok($article1_id = $article1->save);
 
+    ok($article1_id == $article1->id);
+    ok($article1    == $article1_id);
+
     undef($author1);
     undef($author2);
     undef($article1);
@@ -208,6 +232,15 @@ sub run {
         printf("[%d] - %s <%s>\n", $_->id, $_->name, $_->email)
     }
     @authors = undef;
+
+
+
+    ################
+    #
+    # FIX: if load(0) was treated the same way as load()
+    #
+    my $author4 = PO::Author->load(0);
+    ok(!$author4);
 
     ####################
     #
@@ -422,17 +455,25 @@ sub run {
     }
 
 
-
-
-
     ####################
     #
     # Cleaning up all the objects so that for the next 'make test'
     # can start with brand new scratch board
     #
 
+    $iterator->reset();
+    my $author = $iterator->next;
+
+    # removing author named 'Geek':
+    ok($author->remove, $author->errstr);
+
+    ok(PO::Author->count == 2, "count: " . PO::Author->count);
+
+    # again trying to remove the author 'Geek'. This should have no
+    # effect, since it's been removed in previous query
     ok(PO::Author->remove_all({name=>"Geek"}));
-    ok(PO::Author->count == 2);
+    # we still should have two objects in total in our database
+    ok(PO::Author->count == 2, "count: " . PO::Author->count);
     ok(PO::Author->remove_all);
     ok(PO::Author->count == 0);
 

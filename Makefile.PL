@@ -1,7 +1,8 @@
 
 
-# $Id: Makefile.PL,v 1.13.2.1 2003/09/05 12:17:17 sherzodr Exp $
+# $Id: Makefile.PL,v 1.15 2003/09/09 00:11:52 sherzodr Exp $
 
+use strict;
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.

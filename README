@@ -2,8 +2,7 @@ NAME
     Class::PObject - Simple framework for programming persistent objects
 
 SYNOPSIS
-    After loading the Class::PObject with "use", we can declare a class like
-    so
+    After loading Class::PObject with "use", we can declare a class:
 
         pobject Person => {
             columns     => ['id', 'name', 'email'],
@@ -15,16 +14,16 @@ SYNOPSIS
         package Person;
         use Class::PObject;
         pobject {
-            columns     => ['id', 'name', 'email''
+            columns     => ['id', 'name', 'email'],
             datasource  => './data'
         };
 
-    We can now create an instance of above Person, and fill it in with data,
-    and store it into disk:
+    We can now create an instance of above Person, fill it with data, and
+    save it:
 
         $person = new Person();
         $person->name('Sherzod');
-        $person->email('sherzodr@cpan.org');
+        $person->email('sherzodr[AT]cpan.org');
         $new_id = $person->save()
 
     We can access the saved Person later, make necessary changes and save
@@ -56,659 +55,51 @@ SYNOPSIS
 DESCRIPTION
     Class::PObject is a simple class framework for programming persistent
     objects in Perl. Such objects can store themselves into disk, and
-    recreate themselves from disk.
+    restore themselves from disk.
 
 PHILOSOPHY
-    This section has been moved into Class::PObject::Philosophy.
-
-PROGRAMMING STYLE
-    The style of Class::PObject is very similar to that of Class::Struct.
-    Instead of exporting 'struct()', however, Class::PObject exports
-    "pobject()" function. Another visual difference is the way you declare
-    the class. In Class::PObject, each property of the class is represented
-    as a *column*.
-
-    Suppose, you have a database called "person" with the following records:
-
-        # person
-        +-----+----------------+------------------------+
-        | id  | name           | email                  |
-        +-----+----------------+------------------------+
-        | 217 | Sherzod        | sherzodr[AT]cpan.org   |
-        +-----+----------------+------------------------+
-
-  CLASS DECLARATIONS
-
-    Let's declare a class first to represent the above data as a Persistent
-    Object (pobject for short). To do this, we first load the Class::PObject
-    with "use", and declare a class with "pobject()" function, like so:
-
-        use Class::PObject;
-        pobject Person => {
-            columns => ["id", "name", "email"]
-        };
-
-    Above construct is declaring a Class representing a Person object.
-    Person object has 3 attributes that are called *columns* in the
-    *pobject()* declaration. These are *id*, *name* and *email*.
-
-    Above is called in-line declaration, because you are creating an inline
-    object - the one that doesn't need to be in its own class file. You
-    could declare it almost anywhere inside your Perl code.
-
-    In-line declarations are not very useful, because you cannot access them
-    separately from within another application without having to re-declare
-    identical class several times in each of your programs.
-
-    Another, more recommended way of declaring classes is in their own .pm
-    files. For example, inside a Person.pm file we may put:
-
-        # lib/Person.pm
-        package Person;
-        use Class::PObject;
-        pobject Person => {
-            columns => ["id", "name", "email"]
-        };
-
-        __END__;
-
-    That can be the whole content of your Perl module.
-
-    Now, from any other application all we need to do is to load Person.pm,
-    and access all the nifty things it has to offer:
-
-        # inside our app.cgi, for example:
-        use Person;
-        ....
-
-  OBJECT STORAGE
-
-    From the above class declaration you may be wondering, how does it now
-    how and where the object data are stored? The fact is, it doesn't.
-    That's why by default it stores your objects in your system's temporary
-    folder, wherever it may be, using default file driver. To control this
-    behavior you can define *driver* and *datasource* attributes in addition
-    to the above *columns* attribute:
-
-        pobject Person => {
-            columns     => ["id", "name", "email"],
-            datasource  => './data'
-        };
-
-    Now, it's still using the default file driver, but storing the objects
-    in your custom, ./data folder.
-
-    You could've also chosen to store your objects in a DBM file, or in
-    mysql tables. That's where you will need to define your *driver*
-    attribute.
-
-    To store them in BerkelyDB, using DB_File
-
-        pobject Person => {
-            columns => ["id", "name", "email"],
-            driver  => 'db_file',
-            datasource => './data'
-        };
-
-    To store them in Comma Separated text files using DBD::CSV:
-
-        pobject Person => {
-            columns => ["id", "name", "email"],
-            driver  => 'csv',
-            datasource {
-                Dir => './data'
-            }
-        };
-
-    Or, to store them in a mysql database using DBD::mysql:
-
-        pobject Person => {
-            columns => ["id", "name", "email"],
-            driver  => 'mysql',
-            datasource => {
-                DSN      => "dbi:mysql:people",
-                User     => "sherzodr",
-                Password => "secret"
-            }
-        };
-
-    So forth. For more options you should refer to respective object driver
-    manual.
-
-  CREATING NEW PERSON
-
-    After having the above Person class declared, we can now create an
-    instance of a new Person with the following syntax:
-
-        $person = new Person();
-
-    Now what we need is to fill in the "$person"'s attributes, and save it
-    into disk
-
-        $person->name("Sherzod Ruzmetov");
-        $person->email("sherzodr[AT]cpan.org");
-        $person->save();
-
-    As soon as you call "save()" method of the "$person", all the records
-    will be saved into the disk.
-
-    Notice, we didn't give any value for the *id* column. Underlying object
-    drivers will automatically generate a new ID for your newly created
-    object, and "save()" method will return this ID for you.
-
-    If you assign a value for *id*, you better make sure that ID doesn't
-    already exist. If it does, the old object with that ID will be replaced
-    with new object. So to be safe, just don't bother defining any values
-    for your ID columns, unless you have a really good reason.
-
-    Sometimes, if you have objects with few attributes, you may choose to
-    both create your Person and assign its values at the same time. You can
-    do so by passing your column values while creating the new person:
-
-        $person = new Person(name=>"Sherzod Ruzmetov", email=>"sherzodr[AT]cpan.org");
-        $person->save();
-
-  LOADING OBJECTS
-
-    PObjects support "load()" class method, which allows you to retrieve
-    your objects from the disk. You can retrieve objects in many ways. The
-    easiest, and the most efficient way of loading an object from the disk
-    is by its id:
-
-        $person = Person->load(217);
-
-    Now, assuming the "$person" could be retrieved successfully, we can
-    access the attributes of the object like so:
-
-        printf( "Hello %s!\n", $person->name )
-
-    Notice, we are using the same method names to access them as the ones we
-    used to assign values with, but this time with no arguments.
-
-    Above, instead of displaying the "$person"'s name, we could also edit
-    the name and save it back:
-
-        $person->name("Sherzod The Geek");
-        $person->save();
-
-    Sometimes you may choose to load multiple objects. Using the same
-    "load()" method, we could assign all the result set into an array:
-
-        @people = Person->load();
-
-    Each element of the "@people" is a "$person" object, and you could list
-    all of them with the following syntax:
-
-        for my $person ( @people ) {
-            printf("[%d] - %s <%s>\n", $person->id, $person->name, $person->email)
-        }
-
-    Notice two different contexts "load()" was used in. If you call "load()"
-    in scalar context, regardless of the number of matching objects, you
-    will always retrieve the first object in the data set. For added
-    efficiency, Class::PObject will add *limit=>1* argument to "load()" even
-    if it's missing, or exists with a different value.
-
-    If you called "load()" in array context, you will always receive an
-    array of objects, even if result set consists of a single object.
-
-    Sometimes you just want to load objects matching a specific criteria,
-    say, you want all the people whose name are *John*. You can achieve this
-    by passing a hashref as the first argument to "load()":
-
-        @johns = Person->load({name=>"John"});
-
-    Sets of key/value pairs passed to "load()" as the first argument are
-    called *terms*.
-
-    You can also apply post-result filtering to your list, such as sorting
-    by a specific column in a specific order, and limit the list to *n*
-    number of objects and start the listing at object *n* of the result set.
-    All these attributes can be passed as the second argument to "load()" in
-    the form of a hashref and are called *arguments* :
-
-        @people = Person->load(undef, {sort=>'name', direction=>'desc', limit=>100});
-
-    Above "@people" holds 100 "$person" objects, all sorted by name in
-    descending order. We could use both terms and arguments at the same time
-    and in any combination.
-
-  SUPPORTED ARGUMENTS OF load()
-
-    Arguments are the second set of key/value pairs passed to "load()". Some
-    drivers may look at this set as post-result-filters.
-
-    "sort"
-        Defines which column the list should be sorted in.
-
-    "direction"
-        Denotes direction of the sort. Possible values are *asc* meaning
-        ascending sort, and *desc*, meaning descending sort. If "sort" is
-        defined, but no "direction" is available, *asc* is implied.
-
-    "limit"
-        Denotes the number of objects to be returned.
-
-    "offset"
-        Denotes the offset of the result set to be returned. It can be
-        combined with "limit" to retrieve a sub-set of the result set, in
-        which case, result set starting at *offset* value and up to *limit*
-        number will be returned to the caller.
-
-  INCREMENTAL LOAD
-
-    "load()" may be all you need most of the time. If your objects are of
-    larger size, or if you need to operate on thousands of objects, your
-    program may not have enough memory to hold them all, because "load()"
-    tends to load all the matching objects to the memory.
-
-    If this is your concern, you are better off using "fetch()" method
-    instead. Syntax of "fetch()" is almost identical to "load()", with an
-    exception that it doesn't accept object id as the first argument. You
-    can either use it without any arguments, or with any combination of
-    "\%terms" and "\%args" as needed, just like with "load()".
-
-    Another important difference is, it does not return any objects. It's
-    return value is an instance of Class::PObject::Iterator, which helps you
-    to iterate through large data sets by loading them one at a time inside
-    a "while"-loop:
-
-        $result = Person->fetch();
-        while ( my $person = $result->next ) {
-            ...
-        }
-        # or
-        $result = Person->fetch({name=>"John"}, {limit=>100});
-        while ( my $person = $result->next ) {
-            ...
-        }
-
-    For the list of methods available for "$result" - iterator object refer
-    to its manual.
-
-  COUNTING OBJECTS
-
-    Counting objects is very frequent task in many projects. You want to be
-    able to display how many people are in your database in total, or how
-    many "John"s are there.
-
-    You can of course do it with a syntax similar to:
-
-        @all = People->load();
-        $count = scalar( @all );
-
-    This however, also means you will be loading all the objects to memory
-    at the same time.
-
-    Even if we could've done it using an iterator class, as discussed
-    earlier, some database engines may provide a more optimized way of
-    retrieving this information without having to "load()" any objects, by
-    consulting available meta information. That's where "count()" class
-    method comes in:
-
-        $count = Person->count();
-
-    "count()" can accept \%terms, just like above "load()" does as the first
-    argument. Using \%terms you can define conditions:
-
-        $njohns = Person->count({name=>"John"});
-
-  REMOVING OBJECTS
-
-    PObjects support "remove()" and "remove_all()" methods. "remove()" is an
-    object method. It is used only to remove one object at a time.
-    "remove_all()" is a class method, which removes all the objects of the
-    same type, thus a little more scarier.
-
-    To remove a person with id 217, we first need to create an object of
-    that Person, and only then call "remove()" method:
-
-        $person = Person->load(217);
-        $person->remove();
-
-    "remove_all()" is a static class method, and is used for removing all
-    the objects from the database:
-
-        Person->remove_all();
-
-    "remove_all()" can also be used for removing objects selectively without
-    having to load them first. To do this, you can pass "\%terms" as the
-    first argument to "remove_all()". These "\%terms" are the same as the
-    ones we used for "load()":
-
-        Person->remove_all({rating=>1});
-
-    Notice, if we wanted to, we still could've used a code similar to the
-    following to remove all the objects:
-
-        $result = Person->fetch();
-        while ( $person = $result->next ) {
-            $person->remove
-        }
-
-    However, this will require first loading the object to the memory one at
-    a time, and then removing one at a time. Most of the object drivers may
-    offer a better, efficient way of removing objects from the disk without
-    having to "load()" them. That's why you should rely on "remove_all()".
-
-  COLUMN TYPES
-
-    Class::PObject lets you define types for your columns, also known as
-    *type-maps*. First off, what for?
-
-    Type-maps can be looked at as properties of each column. If you are
-    familiar with RDBMS, you are already familiar with them. They read as
-    *CHAR*, *VARCHAR*, *INTEGER*, *ENCRYPT*, *MD5* etc.
-
-    Column types can be used for declaring a property for a column, defining
-    a constraint or input-output filtering of columns.
-
-    This same feature can also be used for defining object relationships,
-    but let's talk about it later, not to confuse you yet.
-
-    You can define a type for your columns by *tmap* pobject attribute:
-
-        pobject User => {
-            columns => ['id', 'login', 'psswd', 'name'],
-            tmap    => {
-                id      => 'INTEGER',
-                login   => 'CHAR(18)',
-                psswd   => 'MD5',
-                name    => 'VARCHAR(40)'
-            }
-        }
-
-    Above class declaration is defining a User class, with 4 columns, and
-    defining the type of each column, such as *id* as an *INTEGER* column,
-    *login* as a *VARCHAR* column and so forth.
-
-    You normally never have to declare any column types. If you don't, *id*
-    column will always default to *INTEGER*, and all other columns will
-    always default to *VARCHAR(255)*. So you should declare your column
-    types only if you don't agree with default types.
-
-    So in above example, I could've chosen to say:
-
-        pobject User => {
-            columns => ['id', 'login', 'psswd', 'name'],
-            tmap    => {
-                psswd   => 'MD5'
-            }
-        }
-
-    Notice, I am accepting default type values for all the columns except
-    for *psswd* column, which should be encrypted using MD5 message digest
-    algorithm before being stored into disk.
-
-    Of course, if I didn't care about security as much, I could've chosen
-    not to define type-map for *psswd* column either.
-
-    As of this release, available built-in column types are:
-
-    INTEGER
-        Stands for INTEGER type. This type is handled through
-        Class::PObject::Type::INTEGER. Currently Class::PObject doesn't
-        enforce any constraints, but this may (and most likely will) change
-        in the future releases, so be cautious.
-
-    CHAR(n)
-        Stands for CHARacter type with length *n*. This type is handled
-        through Class::PObject::Type::CHAR class, which currently doesn't
-        enforce any constraints to the length of the column. This may change
-        in future releases, so be cautious.
-
-    VARCHAR(n)
-        Stands for VARIABLE CHARacter *n* character long. Highest allowed
-        value for *n* is usually 255 characters, but this is still not
-        enforced, but this may change in future releases, so be cautious.
-        Handled through Class::PObject::Type::VARCHAR class.
-
-    TEXT
-        Stands for TEXT column, which normally denotes values longer than
-        255 characters. As of this release TEXT columns are handled the same
-        way as CHAR and VARCHAR columns. This may change in future releases,
-        so be cautious.
-
-    ENCRYPT
-        Stands for ENCRYPTed column types. It denotes values which need to
-        be encrypted using UNIX's "crypt()" function before being stored
-        into disk. Smart overloading allows to do something like the
-        following:
-
-            $user = new User();
-            $user->psswd('marley01');
-            print $user->psswd; # prints 'ZG9nqo.9bPjGA'
-            if ( $user->psswd eq "marley01") {
-                print "Good!\n";
-            } else {
-                print "Bad!\n";
-
-            }
-
-        The above example will print "Good". Notice, that even if "psswd"
-        method returns encrypted password ('ZG9nqo.9bPjGA'), we could still
-        compare it with an un-encrypted string using Perl's built-in *eq*
-        operator to see if "marley01" would really equal to 'ZG9nqo.9bPjGA'
-        if encrypted.
-
-    MD5 Stands for MD5 message digest. It denotes values that need to be
-        encrypted using MD5 message digest algorithm before being stored
-        into disk. Smart overloading allows it to be used in similar way as
-        *ENCRYPT* column types
-
-    Up to this section you noticed that objects' accessor methods have been
-    returning strings, right? Wrong! They have been returning objects of
-    their appropriate types. But you didn't notice them and kept treating
-    them as strings because of smart operator overloading feature of those
-    objects.
-
-    This means, if at any time in your program you want to discover the type
-    of a specific column, you could simply use Perl's built-in *ref()*
-    function:
-
-        print ref( $user->psswd), "\n"; # <-- prints ENCRYPT
-        print ref( $user->name ), "\n"; # <-- print VARCHAR
-
-  DEFINING METHODS OTHER THAN ACCESSORS
-
-    In some cases accessor methods are not all the methods your class may
-    ever need. It may need some other behaviors. In cases like these, you
-    can extend your class with custom methods.
-
-    For example, assume you have a "User" object, which needs to be
-    authenticated before they can access certain parts of the web site. It
-    may be a good idea to add "authenticate()" method into your "User"
-    class, which either returns a User object if he/she is logged in
-    properly, or returns undef, meaning the user isn't logged in yet.
-
-    To do this we can simply define additional method, "authenticate()"
-    inside our .pm file. Consider the following example:
-
-        package User;
-
-        pobject {
-            columns     => ['id', 'login', 'psswd', 'email'],
-            datasource  => './data'
-        };
-
-        sub authenticate {
-            my $class = shift;
-            my ($cgi, $session) = @_;
-
-            # if the user is already logged in, return the object:
-            if ( my $user_id = $session->param('_logged_in') ) {
-                return $class->load( $user_id )
-            }
-
-            # if we come this far, the user is not logged in yet, but still
-            # might've submitted our login form:
-            my $login     = $cgi->param('login')    or return 0;
-            my $password  = $cgi->param('password') or return 0;
-
-            # if we come this far, both 'login' and 'password' fields were submitted
-            # in the form. So we try to load() the matching object:
-            my $user = $class->load({login=>$login, psswd=>$password}) or return undef;
-
-            # we store the user's Id in our session parameter, and return the user
-            # object
-            $session->param('_logged_in', $user->id);
-            return $user
-        }
-
-        __END__;
-
-    Now, we can check if the user is logged into our web site with the
-    following code:
-
-        use User;
-        my $user = User->authenticate($cgi, $session);
-        unless ( defined $user ) {
-            die "You need to login to the web site before you can access this page!"
-        }
-        printf "<h2>Hello %s</h2>", $user->login;
-
-    Notice, we're passing CGI and CGI::Session objects to "authenticate()".
-    You can do it differently depending on the tools you're using.
-
-  HAS-A RELATIONSHIP THROUGH TYPE MAPPING
-
-    Some available tools prefer calling this feature as *HAS-A*
-    relationship, but Class::PObject prefers the term *type-mapping*. For
-    the sake of familiarity, let's look at it as *HAS-A* relationship for
-    now.
-
-    *HAS-A* relationship says that a value in a specific column is actually
-    an id of another object. In RDBMS this particular column is known as
-    *foreighn key*, because it holds the primary key of another (foreign)
-    table.
-
-    You can define this relationship the same way as we did column types
-    using *tmap* pobject attribute.
-
-    Suppose, we have two classes, Article and Author:
-
-        pobject Author => {
-            columns        => ['id', 'name', 'email']
-        };
-
-        pobject Article => {
-            columns        => ['id', 'author', 'title', 'body'],
-            tmap        => {
-                author        => 'Author'
-            }
-        };
-
-    Notice, in the above Article class, we're defining its *author* column
-    to be of *Author* type. This type should match the name of the existing
-    class.
-
-    Now, we can create a new article with the following syntax:
-
-        $author = Author->load({name=>'Sherzod Ruzmetov'});
-
-        $article = new Article();
-        $article->title("Class::PObject now supports HAS-A relationships");
-        $article->body("***body of the article***");
-        $article->author( $author );
-        $article->save();
-
-    Notice, we passed "$author" object to article's "author()" method.
-    Class::PObject retrieves the ID of the author and stores it into
-    Article's *author* field.
-
-    When you choose to access *author* field of the article, Class::PObject
-    will automatically load respective Author object.
-
-        $article = Article->load(32);
-        my $author = $article->author;
-        printf "Author: %s\n", $author->name;
-
-    We could've also passed "$author" as part of the \%terms while loading
-    articles:
-
-        my $author = Author->load({name=>"Sherzod Ruzmetov"});
-        @my_articles = Article->load({author=>$author});
-
-    As you noticed, defining HAS-A relationship is the same as defining
-    built-in column types. In fact, they are the same, with the exception of
-    smart overloading, which are available only in built-in type-maps, and
-    not for objects in HAS-A relationship.
-
-    One can look at it as a restriction, but you don't have to :-).
-
-  ERROR HANDLING
-
-    *PObjects* try never to "die()", and lets the programer to decide what
-    to do on failure, (unless of course, you insult it with wrong syntax).
-
-    Methods that may fail are the ones to do with disk access, namely,
-    "save()", "load()", "remove()" and "remove_all()". So it's advised you
-    check these methods' return values before you assume any success. If an
-    error occurs, the above methods return undef. More verbose error message
-    will be accessible through errstr() method. In addition, "save()" method
-    should always return the object id on success:
-
-        my $new_id = $person->save();
-        unless ( defined $new_id ) {
-            die "save() failed: " . $person->errstr
-        }
-        Person->remove_all() or die "remove_all() failed: " . Person->errstr;
-
-MISCELLANEOUS METHODS
-    In addition to the above described methods, pobjects support the
-    following few useful ones:
-
-    *   "columns()" - returns hash-reference to all the columns of the
-        object. Keys of the hash hold column names, and their values hold
-        respective column values:
-
-            my $columns = $person->columns();
-            while ( my ($k, $v) = each %$columns ) {
-                printf "%s => %s\n", $k, $v
-            }
-
-    *   "dump()" - dumps the object as a chunk of visually formatted data
-        structure using standard Data::Dumper. This method is mainly useful
-        for debugging.
-
-    *   "errstr()" - class method. Returns the error message from last I/O
-        operations, if any. This error message is also available through
-        "$CLASS::errstr" global variable:
-
-            $person = new Person() or die Person->errstr;
-            # or
-            $person->save() or $person->errstr;
-            # or
-            $person->save() or  die $Person::errstr;
-
-    *   "__props()" - returns *class properties*. Class properties are
-        usually whatever was passed to "pobject()" as a hashref. This
-        information is usually useful for driver authors only.
-
-    *   "__driver()" - returns either already available driver object, or
-        creates a new object and returns it. Although not recommended, you
-        can use this driver object to access driver's low-level
-        functionality, as long as you know what you are doing. For available
-        driver methods consult with specific driver manual, or contact the
-        vendor.
+    This section has been moved to Class::PObject::Philosophy.
 
 TODO
-    Following are the lists of features and/or fixes that need to be applied
-    before considering the library ready for production environment. The
-    list is not exhaustive. Feel free to add your suggestions.
+    Class::PObject is not a tool for solving all the problems of the
+    Universe. It may be its success rather than its failure. I still want it
+    to do certain things, for I believe they are right down its alley.
 
-  MORE FLEXIBLE load()
+    * Multiple object joins
+        Currently "load()" and "fetch()" methods are used for querying a
+        single object. It would be ideal if we could select multiple objects
+        at a time through some *join* syntax.
 
-    "load()" will not be all we need until it supports at least simple
-    *join*s. I believe it's something to be supported by object drivers,
-    that's where it can be performed more efficiently.
+    * Column Indexes
+        While RDBMS drivers do not need this, db_file, csv and file drivers
+        will not be suitable for production environment until they do.
 
-  GLOBAL DESCTRUCTOR
+        Column indexes are needed to retrieve more complex queries much
+        faster, without having to perform linear search. With aforementioned
+        drivers (especially file and csv) once number of records increases,
+        querying objects gets extremely processor intensive if more complex
+        "load()" and "fetch()" methods are used.
 
+    * SET Column types
+        Currently column types can be configured to be of *HAS-A*
+        relationship. It would be great if we could specify *HAS-MANY*
+        relationships. Following syntax is still to be implemented:
+
+            pobject Article => {
+                columns => ['id', 'title', 'authors'],
+                tmap    => {
+                    authors => ['Author']
+                }
+            };
+
+        Notice, *authors* field is set to be able to hold an array of
+        *Author* objects.
+
+NOTES
     Pobjects try to cache the driver object for more extended periods than
-    pobject's scope permits them to. So a *global desctuctor* should be
+    pobject's scope permits them to. So a *global destructor* should be
     applied to prevent unfavorable behaviors, especially under persistent
-    environments, such as mod_perl or GUI.
+    environments, such as mod_perl
 
     Global variables that *may* need to be cleaned up are:
 
@@ -717,11 +108,10 @@ TODO
         driver is used in your project, more of these variables may exist.
         This variable holds particular driver object.
 
-    $PObjectName::props
-        Holds the properties for this particular PObject named
-        "$PObjectName". For example, if you created a pobject called
-        *Person*, then it's properties are stored in global variable
-        "$Person::props".
+    $ClassName::props
+        Holds the properties for this particular PObject named "$ClassName".
+        For example, if you created a pobject called *Person*, then it's
+        properties are stored in global variable "$Person::props".
 
     For example, if our objects were using just a mysql driver, in our main
     application we could've done something like:
@@ -731,15 +121,30 @@ TODO
         }
 
 DRIVER SPECIFICATIONS
-    the Class::PObject::Driver manpage, the Class::PObject::Driver::DBI
-    manpage
+    You can learn more about pobject driver specs in the following manuals:
+
+    Class::PObject::Driver
+        Base pobject driver specification. All the drivers are expected to
+        inherit from this class.
+
+    Class::PObject::Driver::DBI
+        Base pobject driver for all the DBI-related drivers. This inherits
+        from Class::PObject::Driver, but re-defines certain methods with
+        those more relevant to DBI drivers.
+
+    Class::PObject::Driver::DBM
+        Base pobject driver for all the DBM-related drivers. It inherits
+        from Class::PObject::Driver, and re-defines certain methods with
+        those more relevant to DBM
+
+COLUMN TYPE SPECIFICATIONS
+    You can learn more about column type specs from Class::PObject::Type,
+    which is also a base class of all the types.
 
 SEE ALSO
-    the Class::PObject manpage, the Class::PObject::Driver manpage, the
-    Class::PObject::Driver::file manpage, the Class::PObject::Driver::DBI
-    manpage, the Class::PObject::Driver::csv manpage, the
-    Class::PObject::Driver::mysql manpage, the Class::PObject::Driver::file
-    manpage
+    http://poop.sourceforge.net/, although little dated, provides brief
+    overview of available tools for programming Persistent Objects in Perl.
+    As of this writing, Class::PObject is still not mentioned.
 
 AUTHOR
     Sherzod B. Ruzmetov, <sherzod@cpan.org>, http://author.handalak.com/
@@ -750,5 +155,4 @@ COPYRIGHT AND LICENSE
     This library is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
 
-    $Date: 2003/09/06 10:07:50 $
-
+    $Date: 2003/09/09 00:11:52 $

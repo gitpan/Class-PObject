@@ -1,6 +1,7 @@
 
 
-# $Id: 01basic_file.t,v 1.7.2.1 2003/09/06 09:57:08 sherzodr Exp $
+# $Id: 01basic_file.t,v 1.9 2003/09/09 00:12:02 sherzodr Exp $
+
 BEGIN {
     for ( "Storable" ) {
         eval "require $_";

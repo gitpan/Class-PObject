@@ -1,6 +1,6 @@
 package Class::PObject::Driver::mysql;
 
-# $Id: mysql.pm,v 1.19.4.2 2003/09/06 10:14:58 sherzodr Exp $
+# $Id: mysql.pm,v 1.21 2003/09/09 00:11:54 sherzodr Exp $
 
 use strict;
 #use diagnostics;

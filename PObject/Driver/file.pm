@@ -1,6 +1,6 @@
 package Class::PObject::Driver::file;
 
-# $Id: file.pm,v 1.15.2.2 2003/09/06 10:14:57 sherzodr Exp $
+# $Id: file.pm,v 1.17 2003/09/09 00:11:54 sherzodr Exp $
 
 use strict;
 #use diagnostics;
@@ -240,7 +240,7 @@ sub generate_id {
 sub _filename {
     my ($self, $object_name, $props, $id) = @_;
 
-    unless ( $object_name && $id ) {
+    unless ( $object_name && defined($id) ) {
         logcroak "Usage: _filename(\$id)";
     }
     my $dir = $self->_dir($object_name, $props) or return;
