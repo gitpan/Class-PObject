@@ -1,11 +1,10 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         Class-PObject
-version:      2.04
+version:      2.05
 version_from: PObject.pm
 installdirs:  site
 requires:
-    File::Spec:                    0
     IO::Dir:                       0
     Log::Agent:                    0
     Storable:                      0

@@ -2,7 +2,7 @@ Changes
 INSTALL
 Makefile.PL
 MANIFEST			This list of files
-MANIFEST.SKIP
+META.yml
 PObject.pm
 PObject/Driver.pm
 PObject/Driver/csv.pm
@@ -22,4 +22,3 @@ t/06basic_csv.t
 t/11basic_mysql.t
 t/16basic_db_file.t
 t/21basic_sqlite.t
-META.yml                                Module meta-data (added by MakeMaker)

@@ -1,13 +1,13 @@
 package Class::PObject;
 
-# $Id: PObject.pm,v 1.33 2003/08/27 07:32:03 sherzodr Exp $
+# $Id: PObject.pm,v 1.34 2003/08/27 08:43:41 sherzodr Exp $
 
 use strict;
 use Log::Agent;
-use vars qw($VERSION $revision);
+use vars ('$VERSION', '$revision');
 
-$VERSION    = '2.04';
-($revision) = '$Revision: 1.33 $' =~ m/Revision:\s*(\S+)/;
+$VERSION    = '2.05';
+($revision) = '$Revision: 1.34 $' =~ m/Revision:\s*(\S+)/;
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
@@ -45,10 +45,9 @@ sub pobject {
     else {
         logcroak "Usage error"
     }
-
     # should we make sure that current package is not 'main'?
     if ( $class eq 'main' ) {
-        logcroak "class 'main' cannot be the class name"
+        logcroak "'main' cannot be the class name"
     }
 
     # creating the class virtually. Note, that it is different
@@ -75,7 +74,7 @@ sub pobject {
         $has_id = ($_ eq 'id') and last
     }
     unless ( $has_id ) {
-        logcroak "'id' column is required!"
+        logcroak "one of the columns must be 'id'"
     }
 
     # certain method names are reserved. Making sure they won't get overridden
@@ -88,23 +87,18 @@ sub pobject {
         }
     }
 
-    # we should also check if the type map was specified for all the columns.
-    # if not, we specify it for them:
     for my $colname ( @{$props->{columns}} ) {
         unless ( defined($props->{tmap}) && $props->{tmap}->{$colname} ) {
             if ( $colname eq 'id' ) {
-                logtrc 1, "column '%s' defaulting to 'INTEGER'", $colname;
                 $props->{tmap}->{$colname} = 'INTEGER';
                 next
             }
-            logtrc 1, "column '%s' defaulting to 'VARCHAR(250)'", $colname;
             $props->{tmap}->{$colname}   = 'VARCHAR(250)'
         }
     }
 
     # if no driver was specified, default driver to be used is 'file'
     unless ( $props->{driver} ) {
-        logtrc 1, "'driver' is missing. Defaulting to 'file'";
         $props->{driver} = 'file'
     }
 
@@ -127,11 +121,10 @@ sub pobject {
     *{ "$class\::dump" }        = \&Class::PObject::Template::dump;
     *{ "$class\::__props" }     = \&Class::PObject::Template::__props;
     *{ "$class\::__driver" }    = \&Class::PObject::Template::__driver;
-
-    # installing accessor methods, only if they haven't already been defined
+    
     for my $colname ( @{$props->{columns}} ) {
         if ( $class->UNIVERSAL::can($colname) ) {
-            logtrc 1, "method '%s' already exists in the caller's package", $colname;
+            logcarp "method '%s' already exists in the caller's package", $colname;
             next
         }
         *{ "$class\::$colname" } = sub {
@@ -783,6 +776,6 @@ Copyright 2003 by Sherzod B. Ruzmetov.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-$Date: 2003/08/27 07:32:03 $
+$Date: 2003/08/27 08:43:41 $
 
 =cut

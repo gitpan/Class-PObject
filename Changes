@@ -1,5 +1,11 @@
 Revision history for Class::PObject
 =======================================
+
+2.05        Wednesday, August 27, 2003
+
+            - Minor inaccuracies in the Iterator.pm's manual fixed
+            - Test suit fixed
+
 2.04        Wednesday, August 27, 2003
 
             - Iterator class was missing in the distribution

@@ -1,7 +1,6 @@
 package Class::PObject::Test::Basic;
 
 use strict;
-use warnings;
 use Test::More;
 use Class::PObject;
 use Class::PObject::Test;
@@ -21,7 +20,7 @@ BEGIN {
 sub run {
     my $self = shift;
 
-    pobject PO::Author => {
+    pobject 'PO::Author' => {
         columns     => ['id', 'name', 'url', 'email'],
         driver      => $self->{driver},
         datasource  => $self->{datasource}
@@ -29,7 +28,7 @@ sub run {
     ok(1);
 
 
-    pobject PO::Article => {
+    pobject 'PO::Article' => {
         columns     => ['id', 'title', 'author', 'content', 'rating'],
         driver      => $self->{driver},
         datasource  => $self->{datasource}

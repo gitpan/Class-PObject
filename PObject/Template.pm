@@ -1,16 +1,18 @@
 package Class::PObject::Template;
 
-# $Id: Template.pm,v 1.11 2003/08/27 00:23:34 sherzodr Exp $
+# $Id: Template.pm,v 1.14 2003/08/27 17:39:47 sherzodr Exp $
 
 use strict;
 use Log::Agent;
 use vars ('$VERSION');
 
-$VERSION = '1.01';
+$VERSION = '1.02';
 
 sub new {
     my $class = shift;
     $class    = ref($class) || $class;
+
+    logtrc 2, "%s->new(%s)", $class, join ", ", @_;
 
     # What should be done if we detect odd number of arguments?
     # I'd say we should croak() right away. We don't want to
@@ -37,14 +39,6 @@ sub new {
         }
     }
 
-    # I'm not sure if 'datasource' should be mandatory. I'm open to
-    # any suggestions. Some drivers may be able to recover 'datasource' on the fly,
-    # without asking for expclicit definition.
-    #unless ( defined $self->{datasource} ) {
-        #$class->error("'datasource' is required");
-        #return undef;
-    #}
-
     # we may also check if the driver is indeed a valid one. However doing so
     # does not allow creating in-memory objects without valid driver. So let's leave
     # this test for related methods.
@@ -53,6 +47,7 @@ sub new {
 
     # if _init() has been specified, we shoudl call it.
     if ( $self->UNIVERSAL::can('pobject_init') ) {
+        logtrc 2, "Calling pobject_init()";
         $self->pobject_init
     }
     return $self
@@ -64,6 +59,8 @@ sub new {
 sub save {
     my $self  = shift;
     my $class = ref($self) || $self;
+
+    logtrc 2, "%s->save(%s)", $class, join ", ", @_;
 
     my $props = $self->__props();
     my $driver_obj = $self->__driver();
@@ -91,7 +88,7 @@ sub fetch {
     my ($terms, $args) = @_;
     my $class = ref($self) || $self;
 
-    logtrc, "fetch(%s)", join  @_;
+    logtrc, "%s->fetch(%s)", $class, join ", ", @_;
 
     $terms ||= {};
     $args  ||= {};
@@ -102,7 +99,7 @@ sub fetch {
     my $ids = $driver->load_ids($class, $props, $terms, $args);
 
     require Class::PObject::Iterator;
-    return Class::PObject::Iterator->new($self, $ids);
+    return Class::PObject::Iterator->new($class, $ids);
 }
 
 
@@ -117,15 +114,13 @@ sub load {
     my ($terms, $args) = @_;
     my $class = ref($self) || $self;
 
-    logtrc 2, "load(%s)", join ", ", @_;
+    logtrc 2, "%s->load(%s)", $class, join ", ", @_;
 
     $terms ||= {};
     $args  ||= {};
-    
 
     # if we're called in void context, why bother?
     unless ( defined wantarray() ) {
-        logtrc 2, "load() called in void context";
         return undef
     }
 
@@ -178,6 +173,7 @@ sub remove {
     my $self    = shift;
     my $class   = ref $self;
 
+    logtrc 2, "%s->remove()", $class;
     unless ( ref $self ) {
         logcroak "remove() used as a static method";
     }
@@ -209,6 +205,8 @@ sub remove_all {
     my $self = shift;
     my $class = ref($self) || $self;
 
+    logtrc 2, "%s->remove_all(%s)", $class, join ", ", @_;
+
     my $props = $self->__props();
     my $driver_obj = $self->__driver();
 
@@ -228,6 +226,8 @@ sub remove_all {
 sub count {
     my $self = shift;
     my $class = ref($self) || $self;
+
+    logtrc 2, "%s->count(%s)", $class, join ", ", @_;
 
     my $props      = $self->__props();
     my $driver_obj = $self->__driver();
@@ -252,7 +252,12 @@ sub errstr {
 
 
 sub columns {
-    return $_[0]->{columns}
+    my $self = shift;
+    my $class = ref($self) || $self;
+
+    logtrc 2, "%s->columns()", $class;
+
+    return $self->{columns}
 }
 
 

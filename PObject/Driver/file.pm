@@ -1,31 +1,30 @@
 package Class::PObject::Driver::file;
 
-# $Id: file.pm,v 1.13 2003/08/27 00:23:37 sherzodr Exp $
+# $Id: file.pm,v 1.14 2003/08/27 08:43:49 sherzodr Exp $
 
 use strict;
 use File::Spec;
 use Log::Agent;
-use base ('Class::PObject::Driver');
+use Class::PObject::Driver;
+use vars ('$f', '$VERSION', '@ISA');
 use Fcntl (':DEFAULT', ':flock', ':mode');
-use vars ('$f', '$VERSION');
 
+@ISA = ("Class::PObject::Driver");
 $VERSION = '2.00';
 $f = 'obj%05d.cpo';
 
 # called when pobject's save() method is called. Note: this is not
 # the same as save() method as the one called by pobject. This is different!
 sub save {
-    my ($self, $object_name, $props, $columns) = @_;
+    my $self = shift;
+    my $class = ref($self) || $self;
+    my ($object_name, $props, $columns) = @_;
+    
+    logtrc 3, "%s->save()", $class;
 
     # if 'id' does not already exist, we're being asked to save a newly
     # created object. Before we do that, we create a new id for the object:
-    if ( defined $columns->{id} ) {
-        logtrc 2, "'id' (%d) already exists. Updating the object data", $columns->{id}
-
-    } else {
-        $columns->{id} = $self->generate_id($object_name, $props) or return;
-        logtrc 2, "'id' was missing, created a new id (%d)", $columns->{id}
-    }
+    $columns->{id} ||= $self->generate_id($object_name, $props) or return;
 
     # _filename() returns the name of the file this particular object should
     # be stored in. Look into _filename() for details
@@ -53,7 +52,6 @@ sub save {
         return undef
     }
     # if everything went swell, we should return object id
-    logtrc 2, "save() successful. Object id is %d", $columns->{id};
     return $columns->{id}
 }
 
@@ -62,9 +60,10 @@ sub save {
 
 sub load_ids {
     my $self = shift;
+    my $class = ref($self) || $self;
     my ($object_name, $props, $terms, $args) = @_;
 
-    logtrc 2, "load_ids(%s, %s, %s, %s)", $object_name, $props, $terms, $args;
+    logtrc 3, "%s->load_ids(%s)", $class, join ", ", @_;
 
     # if we come this far, we're being asked to return either all the objects,
     # or by some criteria
@@ -84,21 +83,16 @@ sub load_ids {
         logerr $self->errstr;
         return undef
     }
-
-    logtrc 2, "Browsing '%s'", $object_dir;
-
     my $n = 0;
     while ( my ($filename, $stat) = each %files ) {
         # if 'limit' was given, and 'offset' is missing and sort is not given,
         # then check we have already reached our 'limit'. Otherwise, we need to
         # load all the objects to the memory before we can return the data set
         if ( defined($args->{limit}) && (!$args->{offset}) && (!$args->{'sort'}) && ($n == $args->{limit}) ) {
-            logtrc 2, "only 'limit' (%d) was defined and been met. Exiting the loop now", $args->{limit};
             last
         }
         # if it is a directory, then skip to the next file
         if ( S_ISDIR($stat->mode) ) {
-            logtrc 2, "'%s' is a directory. Skipping to the next", $filename;
             next
         }
 
@@ -109,7 +103,6 @@ sub load_ids {
         $filef_pattern    =~ s/\./\\./g;
 
         unless ( $filename =~ m/^$filef_pattern$/ ) {
-            logtrc 2, "'%s' doesn't match the regex '%s'. Skipping", $filename, $filef_pattern;
             next
         }
         # we open the file with read-only flag
@@ -130,18 +123,13 @@ sub load_ids {
         }
         my $data = $self->thaw($datastr);
         if ( $self->_matches_terms($data, $terms) ) {
-            if ( keys %$args ) {
-                push @data_set, $data;
-            } else {
-                push @data_set, $data->{id}
-            }
+            push @data_set, keys %$args ? $data : $data->{id};
             $n++
         }
     }
     untie(%files);
 
     # returning post-processed data set
-    logtrc 2, "%d objects were found matching the 'terms'", scalar(@data_set);
     unless ( keys %$args ) {
         return \@data_set
     }
@@ -165,7 +153,11 @@ sub load_ids {
 
 # load_by_id() is called only while object is to be retrieved by its id
 sub load {
-    my ($self, $object_name, $props, $id) = @_;
+    my $self = shift;
+    my $class = ref($self) || $self;
+    my ($object_name, $props, $id) = @_;
+
+    logtrc 3, "%s->load(%s)", $class, join ", ", @_;
 
     # determine the name of the file for this object
     my $filename = $self->_filename($object_name, $props, $id) or return;
@@ -282,9 +274,8 @@ sub _dir {
             return undef
         }
     }
-
-  # return the directory
-  return $object_dir
+    # return the directory
+    return $object_dir
 }
 
 

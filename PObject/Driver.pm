@@ -1,19 +1,21 @@
 package Class::PObject::Driver;
 
-# $Id: Driver.pm,v 1.12 2003/08/26 20:22:34 sherzodr Exp $
+# $Id: Driver.pm,v 1.13 2003/08/27 08:43:46 sherzodr Exp $
 
 use strict;
 use Carp;
 use Log::Agent;
 use vars ('$VERSION');
 
-$VERSION = '1.01';
+$VERSION = '2.00';
 
 # Preloaded methods go here.
 
 sub new {
     my $class = shift;
     $class = ref($class) || $class;
+
+    logtrc 3, "%s->new()", $class;
 
     my $self = {
         _stash    => { },
@@ -96,7 +98,10 @@ sub remove {
 
 sub remove_all {
     my $self = shift;
+    my $class = ref($self) || $self;
     my ($object_name, $props, $terms) = @_;
+
+    logtrc 3, "%s->remove_all(%s)", $class, join ", ", @_;
 
     my $data_set = $self->load_ids($object_name, $props, $terms);
     for ( @$data_set ) {
@@ -110,7 +115,10 @@ sub remove_all {
 
 sub count {
     my $self = shift;
+    my $class = ref($self) || $self;
     my ($object_name, $props, $terms) = @_;
+
+    logtrc 3, "%s->count(%s)", $class, join ", ", @_;
 
     my $data_set = $self->load_ids($object_name, $props, $terms);
     return scalar( @$data_set ) || 0
@@ -158,9 +166,11 @@ sub _filter_by_args {
 
 
 sub _matches_terms {
-    my ($self, $data, $terms) = @_;
+    my $self = shift;
+    my $class = ref($self) || $self;
+    my ($data, $terms) = @_;
 
-    logtrc 2, "_matches_terms(%s, %s, %s)", $self, $data, $terms;
+    logtrc 3, "%s->_matches_terms(%s)", $class, join ", ", @_;
     unless ( keys %$terms ) {
         return 1
     }

@@ -1,12 +1,12 @@
 package Class::PObject::Iterator;
 
-# $Id: Iterator.pm,v 1.2 2003/08/26 19:56:30 sherzodr Exp $
+# $Id: Iterator.pm,v 1.4 2003/08/27 17:39:47 sherzodr Exp $
 
 use strict;
 use Carp 'croak';
 use vars ('$VERSION');
 
-$VERSION = '0.01';
+$VERSION = '1.00';
 
 sub new {
     my $class = shift;
@@ -97,7 +97,7 @@ Class::PObject::Iterator - Incremental object loader for Class::PObject
 =head1 SYNOPSIS
 
     use Class::PObject::Iterator;
-    my $iter = new Class::PObject::Iterator($driver, \@ids);
+    my $iter = new Class::PObject::Iterator($class, \@ids);
 
     while ( my $obj = $iter->fetch ) {
         ...
@@ -113,7 +113,7 @@ on a pobject.
 
 =over 4
 
-=item C<new($pobject, \@ids)>
+=item C<new($class, \@ids)>
 
 Constructor method. Accepts two arguments - name of the class, and list of ids.
 Returns Class::PObject::Iterator object. You normally never will have to call C<new()>
