@@ -1,14 +1,14 @@
 package Class::PObject;
 
-# PObject.pm,v 1.55 2004/05/20 07:11:26 sherzodr Exp
+# PObject.pm,v 1.56 2005/01/26 19:21:58 sherzodr Exp
 
 use strict;
 #use diagnostics;
 use Log::Agent;
 use vars ('$VERSION', '$revision');
 
-$VERSION  = '2.15';
-$revision = '1.55';
+$VERSION  = '2.16';
+$revision = '1.56';
 
 # configuring Log::Agent
 logconfig(-level=>$ENV{POBJECT_DEBUG} || 0);
@@ -271,6 +271,11 @@ behavior you can define I<driver> and/or I<datasource> attributes in addition to
 
 Now, it's still using the default L<file|Class::PObject::Driver::file> driver, but storing
 the objects in your custom, F<./data> folder.
+
+
+NOTE: C<set_datasource()> method can also be used to set datasource. This is useful when datasource
+will not be known until later, in which case it can be set either from within C<pobject_init()> method,
+or called directly as object method.
 
 You could've also chosen to store your objects in a DBM file, or in mysql tables. That's where
 you will need to define your I<driver> attribute.
@@ -1023,6 +1028,6 @@ Copyright (c) 2003 Sherzod B. Ruzmetov. All rights reserved.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-2004/05/20 07:11:26
+2005/01/26 19:21:58
 
 =cut

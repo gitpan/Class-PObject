@@ -1,6 +1,6 @@
 package Class::PObject::Test::Basic;
 
-# Basic.pm,v 1.12 2003/11/07 00:28:24 sherzodr Exp
+# Basic.pm,v 1.13 2005/01/26 19:21:58 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -11,11 +11,11 @@ use vars ('$VERSION', '@ISA');
 use overload;
 
 @ISA = ('Class::PObject::Test');
-$VERSION = '1.02';
+$VERSION = '1.03';
 
 
 BEGIN {
-    plan(tests => 173);
+    plan(tests => 203);
     use_ok("Class::PObject")
 }
 
@@ -26,7 +26,6 @@ sub run {
     pobject 'PO::Author' => {
         columns     => ['id', 'name', 'url', 'email'],
         driver      => $self->{driver},
-        datasource  => $self->{datasource},
         serializer  => 'storable',
         tmap        => {
             name => 'VARCHAR(40)'
@@ -38,7 +37,6 @@ sub run {
     pobject 'PO::Article' => {
         columns     => ['id', 'title', 'author', 'content', 'rating'],
         driver      => $self->{driver},
-        datasource  => $self->{datasource},
         serializer  => 'storable'
     };
     ok(1);
@@ -50,16 +48,23 @@ sub run {
     {
         package PO::Author;
         use Test::More;
-        sub pobject_init {
+        *pobject_init = sub {
+            $_[0]->set_datasource($self->{datasource});
             ok(ref($_[0]) eq 'PO::Author')
-        }
+        };
 
         package PO::Article;
         use Test::More;
-        sub pobject_init {
-            ok(ref($_[0]) eq 'PO::Article')
-        }
+        *pobject_init = sub {
+            $_[0]->set_datasource($self->{datasource});
+            ok(ref($_[0]) eq 'PO::Article');
+        };
     }
+
+    #
+    # Setting datasrource on PO::Article
+    #
+    #PO::Article->set_datasource( $self->{datasource} );
 
     ################
     #
@@ -67,7 +72,7 @@ sub run {
     #
     ok($PO::Author::ISA[0] eq "Class::PObject::Template");
     ok($PO::Article::ISA[0] eq "Class::PObject::Template");
-    
+
 
     ####################
     #
@@ -120,7 +125,7 @@ sub run {
     ok(ref($author1->columns) eq 'HASH');
     ok(ref($author1->__props) eq 'HASH');
     ok(ref($author1->__driver) eq 'Class::PObject::Driver::' . $self->{driver});
-    
+
 
     ####################
     #
@@ -129,7 +134,7 @@ sub run {
     ok($author1->can('id') && $author2->can('name') && $author3->can('email'));
     ok($author1->name ? 0 : 1);
     #ok(1);
-    
+
 
     ok($article1->can('id') && $article2->can('title') && $article3->can('author'));
     #exit;
@@ -148,7 +153,7 @@ sub run {
 
     ok($author1->name eq "Sherzod Ruzmetov");
     ok($author1->email eq 'sherzodr@cpan.org');
-    
+
     $author1->name(undef);
 
     ok($author1->name ? 0 : 1);
@@ -197,6 +202,18 @@ sub run {
     undef($author1);
     undef($author2);
     undef($article1);
+
+    #
+    # 'undef'ining 'datasource' class attribute.
+    # Since this attribuate was defined inside pobject_init() earlier,
+    # we need to check whether will it be redefined when load() is called
+    #
+    {
+        no strict 'refs';
+        ${"PO::Article::props"}->{datasource} = undef;
+        ${"PO::Author::props"}->{datasource}  = undef;
+    }
+
 
     ####################
     #
@@ -424,7 +441,6 @@ sub run {
     $author3 = undef;
     $author3 = PO::Author->load({email=>'sherzodr@cpan.org'}, {'sort'=>'name', direction=>'asc', limit=>1});
     ok($author3);
-
     ok($author3->name eq "Geek");
 
 
@@ -491,7 +507,7 @@ sub run {
 
     ok(PO::Article->remove_all);
     ok(PO::Article->count == 0);
-    
+
     ok(PO::Article->drop_datasource);
     ok(PO::Author->drop_datasource);
 }

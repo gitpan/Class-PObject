@@ -1,6 +1,6 @@
 package Class::PObject::Template;
 
-# Template.pm,v 1.22 2003/11/07 00:28:24 sherzodr Exp
+# Template.pm,v 1.23 2005/01/26 19:21:58 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -12,7 +12,7 @@ use overload (
     fallback=> 1
 );
 
-$VERSION = '1.91';
+$VERSION = '1.92';
 
 sub new {
     my $class = shift;
@@ -20,18 +20,9 @@ sub new {
 
     logtrc 2, "%s->new()", $class;
 
-    # What should be done if we detect odd number of arguments?
-    # I'd say we should croak() right away. We don't want to
-    # end-up with corrupted record in the database, whether the
-    # code checks for error messages, or not!
-    if ( @_ % 2 ) {
-        logcroak "Odd number of arguments passed to new(). May result in corrupted data"
-    }
+    croak "Odd number of arguments passed to new(). May result in corrupted data" if @_ % 2;
 
     my $props = $class->__props();
-
-    # object properties as represented internally by Class::PObject.
-    # Whoever accesses this information from within their code should be shot
     my $self = {
         columns     => { @_ },   # <-- holds key/value pairs
         _is_new     => 1
@@ -47,17 +38,20 @@ sub new {
         }
     }
 
-    # we may also check if the driver is indeed a valid one. However doing so
-    # does not allow creating in-memory objects without valid driver. So let's leave
-    # this test for related methods.
-
-    # if pobject_init() exists, we should call it
-    if ( $self->UNIVERSAL::can('pobject_init') ) {
-        logtrc 2, "calling pobject_init()";
-        $self->pobject_init
-    }
+    $self->pobject_init;
     return $self
 }
+
+
+#
+# Extra init. code should be defined in parent
+#
+sub pobject_init {	}
+
+sub set_datasource {
+	$_[0]->__props()->{"datasource"} = $_[1] if defined( $_[1] );
+}
+
 
 
 
@@ -65,10 +59,8 @@ sub set {
     my $self = shift;
     my ($colname, $colvalue) = @_;
 
-    unless ( @_ == 2  ) {
-        logcroak "%s->set() usage error", ref($self)
-    }
-    #return $self->{columns}->{$colname} = ref($colvalue) ? $colvalue->id : $colvalue;
+	croak "set(): called as class method" unless ref( $self );
+	croak "set(): missing arguments" unless @_ == 2;
 
     my $props = $self->__props();
     my ($typeclass, $args) = $props->{tmap}->{$colname} =~ m/^([a-zA-Z0-9_:]+)(?:\(([^\)]+)\))?$/;
@@ -87,38 +79,28 @@ sub set {
 sub get {
     my ($self, $colname) = @_;
 
-    unless ( defined $colname ) {
-        logcroak "%s->get() usage error", ref($self)
-    }
+	croak "get(): called as class method" unless ref( $self ); 
+	croak "get(): missing arguments" unless defined $colname;
     
     my $colvalue = $self->{columns}->{$colname};
 
-    # if the value is undef, we should return it as is, not to surprise anyone.
-    # if we keep going, the user will end up with an object,
+    # If the value is undef, we should return it as is, not to surprise anyone.
+    # If we keep going, the user will end up with an object,
     # which may not appear as empty
-    unless ( defined $colvalue ) {
-        return undef
-    }
+	return unless defined( $colvalue );
     
-    # if we already have this value in our cache, let's return it
-    if ( ref $colvalue ) {
-        return $colvalue
-    }
+    # If we already have this value in our cache, let's return it
+	return $colvalue if ref( $colvalue );
 
+    # If we come this far, this value is being inquired for the first time.  So we should load() it.
+	# To do this, we first need to identify its column type, to know how to inflate it.
+    my $props				= $self->__props();
+    my ($typeclass, $args)  = $props->{tmap}->{ $colname } =~ m/^([a-zA-Z0-9_:]+)(?:\(([^\)]+)\))?$/;
+    
+	croak "set(): couldn't detect type of column '$colname'" unless $typeclass;    
 
-    # if we come this far, this value is being inquired for the first
-    # time. So we should load() it. 
-    # To do this, we first need to identify its column type, to know how
-    # to inflate it.
-    my $props                = $self->__props();
-    my ($typeclass, $args)    = $props->{tmap}->{ $colname } =~ m/^([a-zA-Z0-9_:]+)(?:\(([^\)]+)\))?$/;
-    unless ( $typeclass ) {
-        logcroak "%s->set(): couldn't detect typeclass for this column (%s)", ref($self), $colname
-    }
-
-    # we should cache the loaded object in the column
-    $self->{columns}->{$colname} = $typeclass->load($colvalue);
-    return $self->{columns}->{$colname}
+    # We should cache the loaded object in the column
+    return $self->{columns}->{$colname} = $typeclass->load($colvalue);
 }
 
 
@@ -127,22 +109,22 @@ sub save {
     my $self  = shift;
     my $class = ref($self) || $self;
 
+	croak "save(): called as class method" unless ref $self;
     logtrc 2, "%s->save(%s)", $class, join ", ", @_;
 
-    my $props = $self->__props();
-    my $driver_obj = $self->__driver();
+    my $props		= $self->__props();
+    my $driver_obj	= $self->__driver();
 
-    # We should realize that column values are of Class::PObject::Type
-    # class, so their values should be stringified before being
-    # passed to drivers' save() method.
     my %columns = ();
     while ( my ($k, $v) = each %{ $self->{columns} } ) {
+		# We should realize that column values are of Class::PObject::Type class, 
+		# so their values should be stringified before being passed to drivers' save() method.
         $v = $v->id while ref $v;
         $columns{$k} = $v
     }
 
-    # we now call the driver's save() method, with the name of the class,
-    # all the props passed to pobject(), and column values to be stored
+    # We call the driver's save() method, with the name of the class, all the props passed to pobject(), 
+	# and column values to be stored
     my $rv = $driver_obj->save($class, $props, \%columns);
     unless ( defined $rv ) {
         $self->errstr($driver_obj->errstr);
@@ -160,17 +142,17 @@ sub save {
 
 
 sub fetch {
-    my $self = shift;
-    my ($terms, $args) = @_;
-    my $class = ref($self) || $self;
+    my $class = shift;
+	croak "fetch(): called as object method" if ref( $class );
 
-    logtrc 2, "%s->fetch()", $class;
-
+	my ($terms, $args) = @_;
     $terms ||= {};
     $args  ||= {};
 
-    my $props  = $self->__props();
-    my $driver = $self->__driver();
+	logtrc 2, "%s->fetch()", $class;
+
+    my $props  = $class->__props();
+    my $driver = $class->__driver();
 
     while ( my ($k, $v) = each %$terms ) {
         $v = $v->id while ref $v;
@@ -190,28 +172,31 @@ sub fetch {
 
 
 sub load {
-    my $self  = shift;
+    my $class = shift;
+	croak "load(): called as object method" if ref($class);
     my ($terms, $args) = @_;
-    my $class = ref($self) || $self;
+    
+	#
+	# Initializing class attributes. This only makes difference if the class
+	# if making use of pobject_init()
+	#
+	$class->new();
 
     logtrc 2, "%s->load()", $class;
 
     $terms = {} unless defined $terms;
     $args  = {} unless defined $args;
 
-    # if we're called in void context, why bother?
-    unless ( defined wantarray() ) {
-        return undef
-    }
+    # If we're called in void context, why bother?
+	return undef unless defined(wantarray);
 
-    # if we are not called in context where array value is expected,
-    # we optimize our query by defining 'limit'
-    unless ( wantarray() ) {
-        $_[1]->{limit} = 1
-    }
+	unless ( wantarray ) {
+		$args->{"limit"} = 1;
+		$args->{"sort"}  ||= 'id';
+	}
 
-    my $props       = $self->__props();
-    my $driver_obj  = $self->__driver();
+    my $props       = $class->__props();
+    my $driver_obj  = $class->__driver();
     my $ids         = [];       # we first initialize an empty ID list
 
     # now, if we had a single argument, and that argument was not a HASH,
@@ -223,8 +208,10 @@ sub load {
             if ( $props->{tmap}->{$k} =~ m/^(MD5|ENCRYPT)$/ ) {
                 carp "cannot select by '$1' type columns (Yet!)"
             }
-            # following trick will enable load(\%terms) syntax to work
-            # by passing objects. 
+			#
+            # Following trick will enable load(\%terms) syntax to work
+            # by passing objects.
+			#
             $terms->{$k} = $terms->{$k}->id while ref $terms->{$k};
         }
         $ids = $driver_obj->load_ids($class, $props, $terms, $args) or return
@@ -235,7 +222,7 @@ sub load {
         my @data_set = ();
         for my $id ( @$ids ) {
             my $row = $driver_obj->load($class, $props, $id) or next;
-            my $o = $self->new( %$row );
+            my $o = $class->new( %$row );
             $o->{_is_new} = 0;
             push @data_set, $o
         }
@@ -243,7 +230,7 @@ sub load {
     }
     # if we come this far, we're being called in scalar context
     my $row = $driver_obj->load($class, $props, $ids->[0]) or return;
-    my $o = $self->new( %$row );
+    my $o = $class->new( %$row );
     $o->{_is_new} = 0;
     return $o
 }
@@ -252,23 +239,18 @@ sub load {
 
 sub remove {
     my $self    = shift;
-    my $class   = ref $self;
+	croak "remove(): called as class method" unless ref($self);
 
-    logtrc 2, "%s->remove()", $class;
-    unless ( ref $self ) {
-        logcroak "remove() used as a static method";
-    }
-
+    logtrc 2, "%s->remove()", ref $self;
+    
     my $props       = $self->__props();
     my $driver_obj  = $self->__driver();
 
     # if 'id' field is missing, most likely it's because this particular object
     # hasn't been saved into disk yet
-    unless ( defined $self->id) {
-        logcroak "object is not saved into disk yet"
-    }
+	croak "remove(): object id is missing. Cannot remove" unless defined $self->id;
 
-    my $rv = $driver_obj->remove($class, $props, $self->id);
+    my $rv = $driver_obj->remove( ref($self), $props, $self->id);
     unless ( defined $rv ) {
         $self->errstr($driver_obj->errstr);
         return undef
@@ -283,14 +265,15 @@ sub remove {
 
 
 sub remove_all {
-    my ($self, $terms) = @_;
-    my $class = ref($self) || $self;
+	my $class = shift;
+	my ($terms) = @_;
 
+	croak "remove_all(): called as object method" if ref($class);
     logtrc 2, "%s->remove_all()", $class;
 
     $terms          ||= {};
-    my $props        = $self->__props();
-    my $driver_obj    = $self->__driver();
+    my $props       = $class->__props();
+    my $driver_obj  = $class->__driver();
 
     while ( my ($k, $v) = each %$terms ) {
         $v = $v->id while ref $v;
@@ -299,7 +282,7 @@ sub remove_all {
 
     my $rv = $driver_obj->remove_all($class, $props, $terms);
     unless ( defined $rv ) {
-        $self->errstr($driver_obj->errstr());
+        $class->errstr($driver_obj->errstr());
         return undef
     }
     return 1
@@ -309,20 +292,18 @@ sub remove_all {
 
 
 sub drop_datasource {
-    my $self = shift;
-    my ($class) = ref ($self) || $self;
+    my $class = shift;
+	croak "drop_datasource(): called as object method" if ref( $class );
+    logtrc 2, "%s->drop_datasource", $class;
 
-    logtrc 2, "%s->drop_datasource", $self;
-
-    my $props   = $self->__props();
-    my $driver_obj = $self->__driver();
+    my $props		= $class->__props();
+    my $driver_obj	= $class->__driver();
 
     my $rv = $driver_obj->drop_datasource($class, $props);
     unless ( defined $rv ) {
-        $self->errstr( $driver_obj->errstr );
+        $class->errstr( $driver_obj->errstr );
         return undef
     }
-
     return 1
 }
 
@@ -332,14 +313,13 @@ sub drop_datasource {
 
 
 sub count {
-    my ($self, $terms) = @_;
-    my $class = ref($self) || $self;
-
+    my ($class, $terms) = @_;
+    croak "count(): called as object method" if ref ($class);
     logtrc 2, "%s->count()", $class;
 
     $terms         ||= {};
-    my $props      = $self->__props();
-    my $driver_obj = $self->__driver();
+    my $props      = $class->__props();
+    my $driver_obj = $class->__driver();
 
     while ( my ($k, $v) = each %$terms ) {
         $v = $v->id while ref $v;
@@ -406,19 +386,28 @@ sub dump {
 
 
 sub __props {
-    my $self = shift;
+    my $class = shift;
+
+	#
+	# Can be called either as class or object method
+	#
 
     no strict 'refs';
-    return ${ (ref($self) || $self) . '::props' }
+    return ${ (ref($class) || $class) . '::props' }
 }
 
 
 
 sub __driver {
-    my $self  = shift;
+    my $class  = shift;
 
-    my $props = $self->__props();
-    my $pm = "Class::PObject::Driver::" . $props->{driver};
+	
+	#
+	# Can be called either as class or object method
+	#
+
+    my $props	= $class->__props();
+    my $pm		= "Class::PObject::Driver::" . $props->{driver};
 
     # closure for getting and setting driver object
     my $get_set_driver = sub {
@@ -430,19 +419,19 @@ sub __driver {
     };
 
     my $driver_obj = $get_set_driver->();
-    if ( defined $driver_obj ) {
-        return $driver_obj
-    }
+	return $driver_obj if defined $driver_obj;
 
-    # if we got this far, it's the first time the driver is
+	#
+    # If we got this far, it's the first time the driver is
     # required.
+	#
     eval "require $pm";
     if ( $@ ) {
         logcroak $@
     }
     $driver_obj = $pm->new();
     unless ( defined $driver_obj ) {
-        $self->errstr($pm->errstr);
+        $class->errstr($pm->errstr);
         return undef
     }
     $get_set_driver->($driver_obj);

@@ -1,13 +1,13 @@
 package Class::PObject::Iterator;
 
-# Iterator.pm,v 1.7 2003/09/09 00:11:53 sherzodr Exp
+# Iterator.pm,v 1.8 2005/01/26 19:21:58 sherzodr Exp
 
 use strict;
 #use diagnostics;
 use Carp 'croak';
 use vars ('$VERSION');
 
-$VERSION = '1.00';
+$VERSION = '1.01';
 
 sub new {
     my $class = shift;
@@ -24,7 +24,6 @@ sub new {
 }
 
 sub DESTROY { 
-    my $self = shift;
 
 }
 
@@ -32,9 +31,7 @@ sub next {
     my $self = shift;
 
     my $next_id = $self->{data_set}->[ $self->{next_ptr}++ ];
-    unless ( defined $next_id ) {
-        return undef
-    }
+	return unless defined $next_id;
     return $self->{pobject}->load($next_id)
 }
 

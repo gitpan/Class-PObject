@@ -1,6 +1,6 @@
 package Class::PObject::Test::Types;
 
-# Types.pm,v 1.6 2004/05/19 06:07:53 sherzodr Exp
+# Types.pm,v 1.7 2005/01/26 19:21:58 sherzodr Exp
 
 use strict;
 #use diagnostics;
@@ -15,7 +15,7 @@ BEGIN {
 }
 
 @ISA = ('Class::PObject::Test');
-$VERSION = '1.02';
+$VERSION = '1.03';
 
 
 sub run {
@@ -24,7 +24,7 @@ sub run {
     pobject User => {
         columns     => ['id', 'name', 'login', 'psswd', 'activation_key'],
         driver      => $self->{driver},
-        datasource  => $self->{datasource},
+#        datasource  => $self->{datasource},
         serializer  => 'storable',
         tmap        => {
             login       => 'CHAR(18)',
@@ -35,6 +35,15 @@ sub run {
         }
     };
     ok(1);
+
+
+	{
+		package User;
+		*pobject_init = sub {
+			$_[0]->set_datasource( $self->{datasource} );
+		}
+	}
+
 
     ################
     #
