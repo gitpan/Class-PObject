@@ -1,6 +1,6 @@
 
 
-# $Id: 06basic_csv.t,v 1.4 2003/08/23 14:31:32 sherzodr Exp $
+# $Id: 06basic_csv.t,v 1.2 2003/08/22 21:00:13 sherzodr Exp $
 
 BEGIN {
     for ( "DBI", "DBD::CSV" ) {
@@ -13,8 +13,6 @@ BEGIN {
 }
 
 
-use File::Spec;
 use Class::PObject::Test::Basic;
-
-my $t = new Class::PObject::Test::Basic('csv', {Dir=>File::Spec->catfile('data', 'csv')});
+my $t = new Class::PObject::Test::Basic('csv', {Dir=>'data'});
 $t->run();

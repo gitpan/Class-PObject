@@ -1,6 +1,6 @@
 package Class::PObject::Driver::mysql;
 
-# $Id: mysql.pm,v 1.17 2003/08/23 14:31:29 sherzodr Exp $
+# $Id: mysql.pm,v 1.16 2003/08/23 10:36:44 sherzodr Exp $
 
 use strict;
 use Log::Agent;
@@ -37,16 +37,13 @@ sub save {
     my $dbh                 = $self->dbh($object_name, $props)        or return;
     my $table               = $self->_tablename($object_name, $props) or return;
     my ($sql, $bind_params) = $self->_prepare_insert($table, $columns);
-
-    $self->_write_lock($dbh, $table) or return undef;
-
     my $sth                 = $dbh->prepare( $sql );
+
     unless ( $sth->execute(@$bind_params) ) {
         $self->errstr("couldn't save/update the record: " . $sth->errstr);
         logerr $self->errstr;
         return undef
     }
-    $self->_unlock($dbh) or return undef;
     return $dbh->{mysql_insertid} || $dbh->{insertid}
 }
 

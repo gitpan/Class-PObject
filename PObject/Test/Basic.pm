@@ -13,7 +13,7 @@ $VERSION = '1.00';
 
 
 BEGIN {
-    plan(tests => 137);
+    plan(tests => 133);
     use_ok("Class::PObject")
 }
 
@@ -30,7 +30,7 @@ sub run {
 
 
     pobject PO::Article => {
-        columns     => ['id', 'title', 'author', 'content', 'rating'],
+        columns     => ['id', 'title', 'author', 'content'],
         driver      => $self->{driver},
         datasource  => $self->{datasource}
     };
@@ -106,7 +106,7 @@ sub run {
 
     ok($author1->name eq "Sherzod Ruzmetov");
     ok($author1->email eq 'sherzodr@cpan.org');
-    
+
     $author1->name(undef);
 
     ok($author1->name ? 0 : 1);
@@ -122,10 +122,9 @@ sub run {
 
     $article1->title("Class::PObject rules!");
     $article1->content("This is the article about Class::PObject and how great this library is");
-    $article1->rating(0);
 
     ok($article1->title eq "Class::PObject rules!");
-    ok($article1->rating == 0);
+
 
 
     ####################
@@ -158,9 +157,6 @@ sub run {
     $article1 = PO::Article->load($article1_id);
     ok($article1);
 
-    ok($article1->title eq "Class::PObject rules!");
-    ok(defined $article1->rating);
-    ok($article1->rating == 0);
 
     $author1 = PO::Author->load($article1->author);
     ok($author1);
@@ -399,8 +395,6 @@ sub run {
 
     ok(PO::Article->remove_all);
     ok(PO::Article->count == 0)
-    #ok(1);
-    #ok(1);
 }
 
 

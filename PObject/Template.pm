@@ -1,6 +1,6 @@
 package Class::PObject::Template;
 
-# $Id: Template.pm,v 1.8 2003/08/23 17:33:20 sherzodr Exp $
+# $Id: Template.pm,v 1.7 2003/08/23 10:36:40 sherzodr Exp $
 
 use strict;
 use Log::Agent;
@@ -38,9 +38,7 @@ sub new {
     # It's possible that new() was not given all the column/values. So we
     # detect the ones missing, and assign them 'undef'
     for my $colname ( @{$props->{columns}} ) {
-        unless ( defined $self->{columns}->{$colname} ) {
-            $self->{columns}->{$colname} = undef
-        }
+        $self->{columns}->{$colname} ||= undef
     }
 
     # I'm not sure if 'datasource' should be mandatory. I'm open to
